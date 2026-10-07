@@ -8,6 +8,15 @@ export interface KV {
   keys(): Promise<string[]>;
 }
 
+/** Resolves once the write is committed to disk, not just accepted. */
+function done(t: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error ?? new Error("IndexedDB write aborted"));
+  });
+}
+
 function req<T>(r: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     r.onsuccess = () => resolve(r.result);
@@ -39,10 +48,14 @@ export function idbKV(store: StoreName): KV {
       return (await req((await tx("readonly")).get(key))) as T | undefined;
     },
     async put(key, value) {
-      await req((await tx("readwrite")).put(value, key));
+      const s = await tx("readwrite");
+      s.put(value, key);
+      await done(s.transaction);
     },
     async del(key) {
-      await req((await tx("readwrite")).delete(key));
+      const s = await tx("readwrite");
+      s.delete(key);
+      await done(s.transaction);
     },
     async keys() {
       return (await req((await tx("readonly")).getAllKeys())).map(String);

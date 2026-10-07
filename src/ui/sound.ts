@@ -8,7 +8,8 @@ let ctx: AudioContext | null = null;
 function audio(): AudioContext | null {
   try {
     ctx ??= new AudioContext();
-    if (ctx.state === "suspended") void ctx.resume();
+    // iOS leaves the context "suspended" or "interrupted" after the app was in the background.
+    if (ctx.state !== "running") void ctx.resume().catch(() => {});
     return ctx;
   } catch {
     return null;

@@ -35,9 +35,32 @@ export function toStage(el: Element, clientX: number, clientY: number): { x: num
   return { x: (clientX - r.left) / current.scale, y: (clientY - r.top) / current.scale };
 }
 
+export interface Insets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+/** The iPad's status bar and home indicator areas, in CSS pixels (all 0 in a normal browser tab). */
+function safeArea(probe: HTMLElement): Insets {
+  const cs = getComputedStyle(probe);
+  const px = (v: string) => parseFloat(v) || 0;
+  return { top: px(cs.paddingTop), right: px(cs.paddingRight), bottom: px(cs.paddingBottom), left: px(cs.paddingLeft) };
+}
+
 export function mountStage(stage: HTMLElement, onResize?: (fit: Fit) => void): void {
+  const probe = document.createElement("div");
+  probe.setAttribute("aria-hidden", "true");
+  probe.style.cssText =
+    "position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;" +
+    "padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
+  document.body.append(probe);
   const apply = () => {
-    current = computeFit(window.innerWidth, window.innerHeight);
+    const i = safeArea(probe);
+    current = computeFit(window.innerWidth - i.left - i.right, window.innerHeight - i.top - i.bottom);
+    stage.style.left = `${i.left}px`;
+    stage.style.top = `${i.top}px`;
     stage.style.width = `${current.width}px`;
     stage.style.height = `${current.height}px`;
     stage.style.transform = `scale(${current.scale})`;

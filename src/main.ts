@@ -1,7 +1,6 @@
 import "./styles.css";
 import initSqlJs from "sql.js";
 import wasmUrl from "sql.js/dist/sql-wasm-browser.wasm?url";
-import { registerSW } from "virtual:pwa-register";
 import { getApp, renderStars, setApp } from "./app";
 import { referencedFiles } from "./data/files";
 import { AppDb } from "./db/database";
@@ -18,15 +17,13 @@ import { debugState, setupPlay, startPuzzle } from "./screens/play";
 import { byId } from "./ui/dom";
 import { go, onEnter, setGuard, wireNavigation } from "./ui/nav";
 import { mountStage } from "./ui/stage";
+import { setupUpdates } from "./ui/update";
 
 const stage = byId("stage");
 mountStage(stage);
 
 // iPad Safari ignores user-scalable=no in some cases; block pinch zoom explicitly.
 document.addEventListener("gesturestart", (e) => e.preventDefault());
-
-// Updates download in the background and apply on the next launch.
-registerSW({ immediate: true });
 
 async function boot(): Promise<void> {
   const SQL = await initSqlJs({ locateFile: () => wasmUrl });
@@ -41,6 +38,8 @@ async function boot(): Promise<void> {
   const save = () => void db.flush();
   document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && save());
   window.addEventListener("pagehide", save);
+
+  setupUpdates(() => db.flush());
 
   await seedSamples(db, files);
   void files.sweep(() => referencedFiles(db));
