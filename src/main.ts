@@ -11,6 +11,8 @@ import { seedSamples } from "./samples";
 import { setupChoose } from "./screens/choose";
 import { completePuzzle } from "./screens/done";
 import { setupHome } from "./screens/home";
+import { setupParent } from "./screens/parent";
+import { setupShop } from "./screens/shop";
 import { requireKid, setupLogin } from "./screens/login";
 import { debugState, setupPlay, startPuzzle } from "./screens/play";
 import { byId } from "./ui/dom";
@@ -50,6 +52,8 @@ async function boot(): Promise<void> {
   setupHome();
   setupChoose(startPuzzle);
   setupPlay(completePuzzle);
+  setupShop();
+  setupParent();
 
   for (const s of ["login", "home", "choose", "play", "done", "shop", "parent"] as const) onEnter(s, () => renderStars());
   setGuard(requireKid);
