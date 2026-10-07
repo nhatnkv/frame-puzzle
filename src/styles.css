@@ -255,3 +255,5 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   .piece.wiggle { animation: none; }
   .hold.pressing .ring circle { transition: none; }
 }
+.kid-slot { position: relative; }
+.add-kid { color: var(--muted); }
