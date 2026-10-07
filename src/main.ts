@@ -3,10 +3,11 @@ import initSqlJs from "sql.js";
 import wasmUrl from "sql.js/dist/sql-wasm-browser.wasm?url";
 import { getApp, renderStars, setApp } from "./app";
 import { referencedFiles } from "./data/files";
+import { syncBuiltins } from "./data/photos";
 import { AppDb } from "./db/database";
 import { FileStore } from "./db/files";
 import { idbKV } from "./db/kv";
-import { seedSamples } from "./samples";
+import { BUILTIN_PICTURES } from "./pictures";
 import { setupChoose } from "./screens/choose";
 import { completePuzzle } from "./screens/done";
 import { setupHome } from "./screens/home";
@@ -41,7 +42,7 @@ async function boot(): Promise<void> {
 
   setupUpdates(() => db.flush());
 
-  await seedSamples(db, files);
+  syncBuiltins(db, BUILTIN_PICTURES);
   void files.sweep(() => referencedFiles(db));
 
   setupLogin((kid) => {

@@ -232,20 +232,25 @@ test("parents add a gift, the child trades stars for it, and parents hand it out
   await expect(page.locator("#mineRow")).toHaveText(/No gifts yet/);
 });
 
-test("a parent imports a picture and deletes it with two taps", async ({ page }) => {
+test("a parent imports a picture and deletes it with two taps; the app's own pictures stay", async ({ page }) => {
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
   await page.click(".home-card[data-go=choose]");
   const thumbs = page.locator("#library .thumb-btn");
-  await expect(thumbs).toHaveCount(3);
+  await expect(thumbs).toHaveCount(5);
+  await expect(page.locator("#libEdit")).toBeHidden();
+  await expect(thumbs.locator("img").first()).toHaveJSProperty("complete", true);
+  expect(await thumbs.locator("img").first().evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(1536);
   await page.setInputFiles("#pickPhoto", await pictureFile(page, "beach.png", "#9EC3E3"));
-  await expect(thumbs).toHaveCount(4);
+  await expect(thumbs).toHaveCount(6);
   await page.click("#libEdit");
-  await page.locator(".del-badge").first().click();
-  await expect(thumbs).toHaveCount(4);
+  await expect(page.locator(".del-badge")).toHaveCount(1);
+  await page.locator(".del-badge").click();
+  await expect(thumbs).toHaveCount(6);
   await page.locator(".del-badge.armed").click();
-  await expect(thumbs).toHaveCount(3);
+  await expect(thumbs).toHaveCount(5);
+  await expect(page.locator("#libEdit")).toBeHidden();
 });
 
 test("the frame takes the shape of a wide photo, so none of it is cut off", async ({ page }) => {
@@ -254,7 +259,7 @@ test("the frame takes the shape of a wide photo, so none of it is cut off", asyn
   await pickKid(page, "Bin");
   await page.click(".home-card[data-go=choose]");
   await page.setInputFiles("#pickPhoto", await pictureFile(page, "beach.png", "#9EC3E3")); // 800x600
-  await expect(page.locator("#library .thumb-btn")).toHaveCount(4);
+  await expect(page.locator("#library .thumb-btn")).toHaveCount(6);
   await page.locator(".count-btn", { hasText: /^4$/ }).click();
   await page.click("#startBtn");
   await expect(page.locator("#progress")).toHaveText("0 / 4");

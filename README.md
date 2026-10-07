@@ -7,7 +7,7 @@ It is a Progressive Web App: it installs from Safari to the iPad home screen, ru
 ## What it does
 
 - **Who is playing?** The app opens on a picker with a big circle per child (photo or initial). No password. Each child has their own stars and gifts; pictures and the gift list are shared by the family.
-- **Choose a picture.** Import from Photos or take a photo, reuse earlier pictures or delete them (two taps). Pick one of 12 piece counts, from 2 to 49 (4 by default, remembered per child).
+- **Choose a picture.** Five pictures come with the app (jungle animals, farm animals, a building site, a town street and rescue vehicles, made with Figma AI) and cannot be deleted. Import from Photos or take a photo, reuse earlier pictures or delete them (two taps). Pick one of 12 piece counts, from 2 to 49 (4 by default, remembered per child).
 - **Play.** The frame shows every jigsaw slot outlined on plain gray. Loose pieces sit around it and never overlap. A piece can go in any slot; a taken slot swaps the two pieces; a piece dropped outside goes back to the side. The picture is done only when every piece is in its own slot. The light bulb lights up a slot for one piece. Leaving needs a 2 second hold on the close button.
 - **Well done!** Stars are saved at once (2 per piece). Pastel confetti, the picture pops in with a shine, stars fly to the counter, a chime and a spoken "Well done!". Reduce Motion in iPad settings turns the animations off.
 - **Gifts.** The child trades stars for gifts the parents added. "My gifts" shows a green tick and "Received" once a parent has handed the gift out.

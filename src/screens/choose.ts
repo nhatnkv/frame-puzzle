@@ -1,7 +1,8 @@
 // Choose a picture (import, reuse or delete) and how many pieces, with a preview of the cut.
 
 import { getApp } from "../app";
-import { addPhoto, deletePhoto, getPhoto, listPhotos, touchPhoto } from "../data/photos";
+import { addPhoto, deletePhoto, getPhoto, isBuiltin, listPhotos, touchPhoto, type Photo } from "../data/photos";
+import { builtinUrl } from "../pictures";
 import { getSetting, setSetting } from "../data/settings";
 import { starsFor } from "../data/stars";
 import { cropRect, DEFAULT_COUNT, makeEdges, outlinePath, pieceOutline, pieceSize, PIECE_COUNTS, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
@@ -18,11 +19,15 @@ let editing = false;
 let loaded: { id: number; img: HTMLImageElement } | null = null;
 const previewEdges = new Map<string, Edges>();
 
+function photoUrl(p: Photo): Promise<string | null> {
+  return isBuiltin(p) ? Promise.resolve(builtinUrl(p.file_key)) : getApp().files.url(p.file_key);
+}
+
 /** The picture as an image element, decoded once per selection. */
 export async function photoImage(id: number): Promise<HTMLImageElement> {
   if (loaded?.id === id) return loaded.img;
   const p = getPhoto(getApp().db, id);
-  const url = p && (await getApp().files.url(p.file_key));
+  const url = p && (await photoUrl(p));
   if (!url) throw new Error("Picture is missing");
   const img = await loadImageUrl(url);
   loaded = { id, img };
@@ -72,11 +77,12 @@ function render(): void {
   const { db, files } = getApp();
   const photos = listPhotos(db);
   if (!photos.some((p) => p.id === photoId)) photoId = photos[0]?.id ?? null;
-  if (!photos.length) editing = false;
+  const deletable = photos.some((p) => !isBuiltin(p));
+  if (!deletable) editing = false;
 
   byId("libraryLabel").textContent = `Your pictures (${photos.length})`;
   const edit = byId("libEdit");
-  edit.hidden = !photos.length;
+  edit.hidden = !deletable;
   edit.textContent = editing ? "Done" : "Delete";
 
   const lib = byId("library");
@@ -87,14 +93,14 @@ function render(): void {
   for (const p of photos) {
     const on = p.id === photoId;
     const img = h("img", { alt: "" });
-    void files.url(p.file_key).then((u) => u && (img.src = u));
+    void photoUrl(p).then((u) => u && (img.src = u));
     const b = h("button", { type: "button", class: `thumb-btn${on ? " on" : ""}`, "aria-label": "Choose this picture", "aria-pressed": on ? "true" : "false" }, img);
     b.addEventListener("click", () => {
       photoId = p.id;
       render();
     });
     const item = h("div", { class: "lib-item" }, b);
-    if (editing) {
+    if (editing && !isBuiltin(p)) {
       item.append(
         twoTapDelete({
           className: "del-badge",

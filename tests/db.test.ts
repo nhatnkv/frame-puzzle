@@ -7,7 +7,7 @@ import { memoryKV } from "../src/db/kv";
 import { MIGRATIONS } from "../src/db/schema";
 import { referencedFiles } from "../src/data/files";
 import { addKid, cleanName, countKids, deleteKid, getKid, initial, listKids, updateKid } from "../src/data/kids";
-import { addPhoto, deletePhoto, listPhotos, touchPhoto } from "../src/data/photos";
+import { addPhoto, deletePhoto, isBuiltin, listPhotos, syncBuiltins, touchPhoto } from "../src/data/photos";
 import { adjustStars, recordPuzzle, starTotal } from "../src/data/stars";
 import { getSetting, setSetting } from "../src/data/settings";
 
@@ -102,6 +102,29 @@ describe("stars", () => {
 });
 
 describe("pictures", () => {
+  const pic = (name: string) => ({ name, url: `/${name}.jpg`, width: 1536, height: 1024 });
+
+  it("adds the pictures that come with the app once, after the family's own, and they cannot be deleted", async () => {
+    const db = await openDb();
+    addPhoto(db, "f1", 100, 100);
+    syncBuiltins(db, [pic("jungle"), pic("farm")]);
+    syncBuiltins(db, [pic("jungle"), pic("farm")]);
+    const photos = listPhotos(db);
+    expect(photos.map((p) => p.file_key)).toEqual(["f1", "builtin:jungle", "builtin:farm"]);
+    expect(photos.map(isBuiltin)).toEqual([false, true, true]);
+    for (const p of photos) deletePhoto(db, p.id);
+    expect(listPhotos(db).map((p) => p.file_key)).toEqual(["builtin:jungle", "builtin:farm"]);
+  });
+
+  it("drops a picture the app no longer ships and adds a new one", async () => {
+    const db = await openDb();
+    syncBuiltins(db, [pic("jungle"), pic("farm")]);
+    const jungle = listPhotos(db)[0].id;
+    syncBuiltins(db, [pic("jungle"), pic("town")]);
+    expect(listPhotos(db).map((p) => p.file_key)).toEqual(["builtin:jungle", "builtin:town"]);
+    expect(listPhotos(db)[0].id).toBe(jungle);
+  });
+
   it("lists the most recently used first and keeps puzzle history after deleting", async () => {
     const db = await openDb();
     const kid = addKid(db, "Bin", 0, null);
