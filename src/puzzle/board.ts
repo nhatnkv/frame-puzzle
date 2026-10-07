@@ -123,11 +123,21 @@ export function drop(st: BoardState, piece: number, from: Loc | null, d: Drop, c
 }
 
 /** Board cell under a point, or null when it is outside the frame (plus a forgiving margin). */
-export function cellAt(rows: number, cols: number, s: number, bx: number, by: number, x: number, y: number, margin = 0.25): number | null {
-  const m = s * margin;
-  if (x < bx - m || x > bx + cols * s + m || y < by - m || y > by + rows * s + m) return null;
-  const col = Math.max(0, Math.min(cols - 1, Math.floor((x - bx) / s)));
-  const row = Math.max(0, Math.min(rows - 1, Math.floor((y - by) / s)));
+export function cellAt(
+  rows: number,
+  cols: number,
+  pw: number,
+  ph: number,
+  bx: number,
+  by: number,
+  x: number,
+  y: number,
+  margin = 0.25
+): number | null {
+  const m = Math.min(pw, ph) * margin;
+  if (x < bx - m || x > bx + cols * pw + m || y < by - m || y > by + rows * ph + m) return null;
+  const col = Math.max(0, Math.min(cols - 1, Math.floor((x - bx) / pw)));
+  const row = Math.max(0, Math.min(rows - 1, Math.floor((y - by) / ph)));
   return row * cols + col;
 }
 

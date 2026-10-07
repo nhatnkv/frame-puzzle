@@ -3,10 +3,16 @@ import { expect, test, type Page } from "@playwright/test";
 interface FrameState {
   rows: number;
   cols: number;
-  s: number;
+  /** Piece width and height, waiting cell side, piece canvas size. */
+  pw: number;
+  ph: number;
+  cell: number;
   bx: number;
   by: number;
-  size: number;
+  bw: number;
+  bh: number;
+  cw: number;
+  ch: number;
   cells: Array<[number, number]>;
   loc: Array<{ kind: "tray" | "board"; index?: number; cell?: number }>;
   pieces: Array<{ x: number; y: number }>;
@@ -48,13 +54,13 @@ async function dragPiece(page: Page, piece: number, cell: number | "outside") {
     return { x: pf.x, y: pf.y, k: stage.getBoundingClientRect().width / stage.offsetWidth };
   });
   const q = s.pieces[piece];
-  const from = [g.x + (q.x + s.size / 2) * g.k, g.y + (q.y + s.size / 2) * g.k];
+  const from = [g.x + (q.x + s.cw / 2) * g.k, g.y + (q.y + s.ch / 2) * g.k];
   const to =
     cell === "outside"
       ? [g.x + 8 * g.k, g.y + 8 * g.k]
       : [
-          g.x + (s.bx + (cell % s.cols) * s.s + s.s / 2) * g.k,
-          g.y + (s.by + Math.floor(cell / s.cols) * s.s + s.s / 2) * g.k
+          g.x + (s.bx + (cell % s.cols) * s.pw + s.pw / 2) * g.k,
+          g.y + (s.by + Math.floor(cell / s.cols) * s.ph + s.ph / 2) * g.k
         ];
   await page.mouse.move(from[0], from[1]);
   await page.mouse.down();
@@ -116,7 +122,7 @@ test("loose pieces never overlap and a piece dropped outside the frame goes back
   await startPuzzle(page, 49);
   const s = await frame(page);
   const centres = s.loc.map((l) => s.cells[l.index!]);
-  const gap = s.s * 1.6 - 0.5;
+  const gap = s.cell - 0.5;
   for (let i = 0; i < centres.length; i++) {
     for (let j = i + 1; j < centres.length; j++) {
       const apart = Math.abs(centres[i][0] - centres[j][0]) >= gap || Math.abs(centres[i][1] - centres[j][1]) >= gap;
@@ -240,6 +246,22 @@ test("a parent imports a picture and deletes it with two taps", async ({ page })
   await expect(thumbs).toHaveCount(4);
   await page.locator(".del-badge.armed").click();
   await expect(thumbs).toHaveCount(3);
+});
+
+test("the frame takes the shape of a wide photo, so none of it is cut off", async ({ page }) => {
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await page.click(".home-card[data-go=choose]");
+  await page.setInputFiles("#pickPhoto", await pictureFile(page, "beach.png", "#9EC3E3")); // 800x600
+  await expect(page.locator("#library .thumb-btn")).toHaveCount(4);
+  await page.locator(".count-btn", { hasText: /^4$/ }).click();
+  await page.click("#startBtn");
+  await expect(page.locator("#progress")).toHaveText("0 / 4");
+  const s = await frame(page);
+  expect([s.rows, s.cols]).toEqual([2, 2]);
+  expect(s.bw / s.bh).toBeCloseTo(4 / 3, 1);
+  expect(s.pw).toBeGreaterThan(s.ph);
 });
 
 test("works offline after the first visit", async ({ page, context, browserName }) => {

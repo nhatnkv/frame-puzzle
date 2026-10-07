@@ -11,9 +11,50 @@ const GRIDS: Record<PieceCount, [rows: number, cols: number]> = {
   16: [4, 4], 20: [4, 5], 25: [5, 5], 30: [5, 6], 36: [6, 6], 49: [7, 7]
 };
 
-export function gridFor(count: PieceCount): { rows: number; cols: number } {
-  const [rows, cols] = GRIDS[count];
-  return { rows, cols };
+/**
+ * The rows x cols grid for a piece count. With the picture's shape (`aspect`, width / height) it picks
+ * the grid whose pieces come out closest to square, so the whole picture fits without cropping.
+ */
+export function gridFor(count: PieceCount, aspect = 1): { rows: number; cols: number } {
+  const [r0, c0] = GRIDS[count];
+  let best = { rows: r0, cols: c0 };
+  let bestScore = Math.abs(Math.log((aspect * r0) / c0));
+  for (let rows = 1; rows <= count; rows++) {
+    if (count % rows) continue;
+    const cols = count / rows;
+    const score = Math.abs(Math.log((aspect * rows) / cols));
+    if (score < bestScore - 1e-9) {
+      best = { rows, cols };
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** Pieces are never longer than this many times their width (or the other way round). */
+export const MAX_PIECE_ASPECT = 2;
+
+export interface Shape {
+  rows: number;
+  cols: number;
+  /** Width / height of one piece. */
+  pieceAspect: number;
+  /** Width / height of the whole puzzle; the picture is shown in full unless it is extremely long. */
+  frameAspect: number;
+}
+
+/** How a picture is cut: the grid for the piece count and the shape of the frame and its pieces. */
+export function shapeFor(count: PieceCount, imageAspect: number): Shape {
+  const { rows, cols } = gridFor(count, imageAspect);
+  const pieceAspect = Math.min(MAX_PIECE_ASPECT, Math.max(1 / MAX_PIECE_ASPECT, (imageAspect * rows) / cols));
+  return { rows, cols, pieceAspect, frameAspect: (pieceAspect * cols) / rows };
+}
+
+/** Piece width and height for a size: the longer side is `size`. */
+export function pieceSize(size: number, pieceAspect: number): { pw: number; ph: number } {
+  return pieceAspect >= 1
+    ? { pw: size, ph: Math.round(size / pieceAspect) }
+    : { pw: Math.round(size * pieceAspect), ph: size };
 }
 
 /** Small deterministic random generator (mulberry32). */
@@ -65,7 +106,7 @@ const TAB: Array<[number, number][]> = [
   [[0.12, 0.08], [0.04, 0.05], [0.06, 0]]
 ];
 
-/** Furthest a tab reaches beyond its piece, as a fraction of the piece size. */
+/** Furthest a tab reaches beyond its piece, as a fraction of the piece's shorter side. */
 export const MAX_TAB_REACH = 0.23 * TAB_LIMITS.k[1] * TAB_LIMITS.h[1];
 
 export type Pt = [number, number];
@@ -79,34 +120,37 @@ export interface Outline {
   segments: Pt[][];
 }
 
-function edgeSegments(p0: Pt, p1: Pt, normal: Pt, s: number, prm: EdgeParams | null, dir: number): Pt[][] {
+// Tabs are sized by the piece's shorter side `t`, so a long piece gets the same tabs as a square one.
+function edgeSegments(p0: Pt, p1: Pt, normal: Pt, t: number, prm: EdgeParams | null, dir: number): Pt[][] {
   if (!prm || !dir) return [[p1]];
-  const ux = (p1[0] - p0[0]) / s;
-  const uy = (p1[1] - p0[1]) / s;
+  const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+  const ex = (p1[0] - p0[0]) / len;
+  const ey = (p1[1] - p0[1]) / len;
   const at = (q: [number, number]): Pt => {
-    const u = prm.c + q[0] * prm.k;
-    const v = q[1] * prm.k * prm.h * dir;
-    return [p0[0] + (u * ux + v * normal[0]) * s, p0[1] + (u * uy + v * normal[1]) * s];
+    const u = prm.c * len + q[0] * prm.k * t;
+    const v = q[1] * prm.k * prm.h * t * dir;
+    return [p0[0] + u * ex + v * normal[0], p0[1] + u * ey + v * normal[1]];
   };
   return [[at(TAB[0][0])], TAB[1].map(at), TAB[2].map(at), TAB[3].map(at), [p1]];
 }
 
 const flip = (p: EdgeParams): EdgeParams => ({ ...p, c: 1 - p.c });
 
-/** Outline of piece (r, c) with piece size s, in board coordinates. */
-export function pieceOutline(r: number, c: number, s: number, E: Edges): Outline {
-  const x0 = c * s;
-  const y0 = r * s;
+/** Outline of piece (r, c) for pieces `pw` wide and `ph` high, in board coordinates. */
+export function pieceOutline(r: number, c: number, pw: number, ph: number, E: Edges): Outline {
+  const t = Math.min(pw, ph);
+  const x0 = c * pw;
+  const y0 = r * ph;
   const TL: Pt = [x0, y0];
-  const TR: Pt = [x0 + s, y0];
-  const BR: Pt = [x0 + s, y0 + s];
-  const BL: Pt = [x0, y0 + s];
+  const TR: Pt = [x0 + pw, y0];
+  const BR: Pt = [x0 + pw, y0 + ph];
+  const BL: Pt = [x0, y0 + ph];
   const segs: Pt[][] = [];
   // Clockwise: top, right, bottom, left. Bottom and left are traced backwards, hence flip().
-  segs.push(...(r > 0 ? edgeSegments(TL, TR, [0, -1], s, E.H[r - 1][c], -E.H[r - 1][c].d) : [[TR]]));
-  segs.push(...(c < E.cols - 1 ? edgeSegments(TR, BR, [1, 0], s, E.V[r][c], E.V[r][c].d) : [[BR]]));
-  segs.push(...(r < E.rows - 1 ? edgeSegments(BR, BL, [0, 1], s, flip(E.H[r][c]), E.H[r][c].d) : [[BL]]));
-  segs.push(...(c > 0 ? edgeSegments(BL, TL, [-1, 0], s, flip(E.V[r][c - 1]), -E.V[r][c - 1].d) : [[TL]]));
+  segs.push(...(r > 0 ? edgeSegments(TL, TR, [0, -1], t, E.H[r - 1][c], -E.H[r - 1][c].d) : [[TR]]));
+  segs.push(...(c < E.cols - 1 ? edgeSegments(TR, BR, [1, 0], t, E.V[r][c], E.V[r][c].d) : [[BR]]));
+  segs.push(...(r < E.rows - 1 ? edgeSegments(BR, BL, [0, 1], t, flip(E.H[r][c]), E.H[r][c].d) : [[BL]]));
+  segs.push(...(c > 0 ? edgeSegments(BL, TL, [-1, 0], t, flip(E.V[r][c - 1]), -E.V[r][c - 1].d) : [[TL]]));
   return { start: TL, segments: segs };
 }
 

@@ -85,10 +85,10 @@ describe("board rules", () => {
 
 describe("cellAt", () => {
   it("finds the cell under a point and forgives drops just outside the frame", () => {
-    expect(cellAt(2, 2, 100, 300, 100, 350, 150)).toBe(0);
-    expect(cellAt(2, 2, 100, 300, 100, 450, 250)).toBe(3);
-    expect(cellAt(2, 2, 100, 300, 100, 290, 150)).toBe(0);
-    expect(cellAt(2, 2, 100, 300, 100, 200, 150)).toBeNull();
+    expect(cellAt(2, 2, 100, 100, 300, 100, 350, 150)).toBe(0);
+    expect(cellAt(2, 2, 100, 100, 300, 100, 450, 250)).toBe(3);
+    expect(cellAt(2, 2, 100, 100, 300, 100, 290, 150)).toBe(0);
+    expect(cellAt(2, 2, 100, 100, 300, 100, 200, 150)).toBeNull();
   });
 
   it("deals pieces to random cells, never in picture order", () => {
@@ -110,5 +110,13 @@ describe("cellAt", () => {
     }
     expect(dealOrder(3, 1, rand)).toHaveLength(1);
     expect(() => dealOrder(3, 4, rand)).toThrow();
+  });
+
+  it("finds cells of rectangular pieces", () => {
+    // 2 x 3 pieces, each 120 wide and 80 high, board at (0, 0).
+    expect(cellAt(2, 3, 120, 80, 0, 0, 130, 10)).toBe(1);
+    expect(cellAt(2, 3, 120, 80, 0, 0, 350, 150)).toBe(5);
+    expect(cellAt(2, 3, 120, 80, 0, 0, 370, 150)).toBe(5);
+    expect(cellAt(2, 3, 120, 80, 0, 0, 390, 150)).toBeNull();
   });
 });

@@ -2,7 +2,7 @@
 // pieces waiting around it. The child drags pieces in and out; see src/puzzle/board.ts for the rules.
 
 import { cellAt, deal, dealOrder, drop, isCorrect, isFull, isSolved, lift, piecesOnBoard, type BoardState, type Loc } from "../puzzle/board";
-import { cropRect, gridFor, makeEdges, outlinePath, pieceOutline, rng, type Edges, type PieceCount } from "../puzzle/geometry";
+import { cropRect, makeEdges, outlinePath, pieceOutline, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
 import { FRAME_BORDER, layoutWithReference, pieceMargin, REF_PAD, type Layout, type Rect } from "../puzzle/layout";
 import { byId, h } from "../ui/dom";
 import { current, go, onEnter } from "../ui/nav";
@@ -17,7 +17,7 @@ const REFERENCE = { top: 16 - TOP_BAR, right: 36, max: 180 };
 export interface Solved {
   photoId: number;
   pieces: number;
-  /** The whole picture, cropped to the puzzle's shape. */
+  /** The whole picture, in the puzzle's shape. */
   art: HTMLCanvasElement;
 }
 
@@ -34,13 +34,17 @@ interface Game {
   photoId: number;
   rows: number;
   cols: number;
+  /** Width / height of one piece; the frame takes the picture's shape. */
+  pieceAspect: number;
   img: HTMLImageElement;
   E: Edges;
   L: Layout;
   /** The reference picture's card. */
   ref: Rect;
+  /** Margin around a piece for its tabs, and the size of a piece's canvas. */
   m: number;
-  size: number;
+  cw: number;
+  ch: number;
   dpr: number;
   art: HTMLCanvasElement;
   slots: HTMLCanvasElement;
@@ -74,22 +78,24 @@ const fieldSize = () => {
 
 /** Starts a new puzzle from a picture. */
 export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageElement): void {
-  const { rows, cols } = gridFor(count);
+  const { rows, cols, pieceAspect } = shapeFor(count, img.width / img.height);
   const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) | 0;
   go("play");
   const { W, H } = fieldSize();
-  const { layout: L, ref } = layoutWithReference(rows, cols, W, H, REFERENCE);
+  const { layout: L, ref } = layoutWithReference(rows, cols, W, H, REFERENCE, pieceAspect);
   const order = dealOrder(L.cells.length, rows * cols, rng(seed + 1));
   game = {
     photoId,
     rows,
     cols,
+    pieceAspect,
     img,
     E: makeEdges(rows, cols, rng(seed)),
     L,
     ref,
     m: 0,
-    size: 0,
+    cw: 0,
+    ch: 0,
     dpr: Math.min(window.devicePixelRatio || 1, 2),
     art: document.createElement("canvas"),
     slots: document.createElement("canvas"),
@@ -109,15 +115,16 @@ export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageEl
 function build(g: Game): void {
   const pf = field();
   pf.replaceChildren();
-  const { s, bx, by, bw, bh } = g.L;
-  g.m = pieceMargin(s);
-  g.size = s + 2 * g.m;
+  const { pw, ph, bx, by, bw, bh } = g.L;
+  g.m = pieceMargin(pw, ph);
+  g.cw = pw + 2 * g.m;
+  g.ch = ph + 2 * g.m;
   const dpr = g.dpr;
 
-  // The picture, cropped to the board's shape.
+  // The picture in the board's shape: the whole picture, cropped only if it is extremely long.
   g.art.width = Math.round(bw * dpr);
   g.art.height = Math.round(bh * dpr);
-  const [sx, sy, sw, sh] = cropRect(g.img.width, g.img.height, g.cols / g.rows);
+  const [sx, sy, sw, sh] = cropRect(g.img.width, g.img.height, bw / bh);
   g.art.getContext("2d")!.drawImage(g.img, sx, sy, sw, sh, 0, 0, g.art.width, g.art.height);
 
   pf.append(
@@ -147,14 +154,15 @@ function build(g: Game): void {
   for (let r = 0; r < g.rows; r++) {
     for (let c = 0; c < g.cols; c++) {
       const el = h("canvas", { class: "piece" });
-      el.width = Math.round(g.size * dpr);
-      el.height = Math.round(g.size * dpr);
-      el.style.width = el.style.height = `${g.size}px`;
+      el.width = Math.round(g.cw * dpr);
+      el.height = Math.round(g.ch * dpr);
+      el.style.width = `${g.cw}px`;
+      el.style.height = `${g.ch}px`;
       const ctx = el.getContext("2d")!;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const ox = c * s - g.m;
-      const oy = r * s - g.m;
-      const path = outlinePath(pieceOutline(r, c, s, g.E), ox, oy);
+      const ox = c * pw - g.m;
+      const oy = r * ph - g.m;
+      const path = outlinePath(pieceOutline(r, c, pw, ph, g.E), ox, oy);
       ctx.save();
       ctx.clip(path);
       ctx.drawImage(g.art, -ox, -oy, bw, bh);
@@ -177,7 +185,7 @@ function build(g: Game): void {
 
 function drawSlots(g: Game): void {
   const x = g.slots.getContext("2d")!;
-  const { s, bw, bh } = g.L;
+  const { pw, ph, bw, bh } = g.L;
   x.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
   x.clearRect(0, 0, bw, bh);
   x.fillStyle = "#E4E6E9";
@@ -185,7 +193,7 @@ function drawSlots(g: Game): void {
   x.lineJoin = "round";
   for (let r = 0; r < g.rows; r++) {
     for (let c = 0; c < g.cols; c++) {
-      const path = outlinePath(pieceOutline(r, c, s, g.E));
+      const path = outlinePath(pieceOutline(r, c, pw, ph, g.E));
       const hint = g.hint === r * g.cols + c;
       if (hint) {
         x.fillStyle = "rgba(79,135,184,0.18)";
@@ -203,15 +211,15 @@ function moveTo(g: Game, p: Piece, loc: Loc | null, glide: boolean): void {
   if (!loc) return;
   if (loc.kind === "tray") {
     const [cx, cy] = g.L.cells[loc.index];
-    p.x = Math.round(cx - g.size / 2);
-    p.y = Math.round(cy - g.size / 2);
+    p.x = Math.round(cx - g.cw / 2);
+    p.y = Math.round(cy - g.ch / 2);
     p.el.style.zIndex = String(++g.z);
     p.el.classList.remove("placed");
   } else {
     const r = Math.floor(loc.cell / g.cols);
     const c = loc.cell % g.cols;
-    p.x = g.L.bx + c * g.L.s - g.m;
-    p.y = g.L.by + r * g.L.s - g.m;
+    p.x = g.L.bx + c * g.L.pw - g.m;
+    p.y = g.L.by + r * g.L.ph - g.m;
     p.el.style.zIndex = String(10 + loc.cell);
     p.el.classList.add("placed");
   }
@@ -234,7 +242,7 @@ function hitPiece(g: Game, x: number, y: number): Piece | null {
   for (const p of list) {
     const lx = x - p.x;
     const ly = y - p.y;
-    if (lx < 0 || ly < 0 || lx > g.size || ly > g.size) continue;
+    if (lx < 0 || ly < 0 || lx > g.cw || ly > g.ch) continue;
     // The touch area follows the jigsaw shape, so a tab never steals a neighbour's touch.
     if (p.ctx.isPointInPath(p.path, lx * g.dpr, ly * g.dpr)) return p;
   }
@@ -263,8 +271,8 @@ function onMove(e: PointerEvent): void {
   const pt = toStage(field(), e.clientX, e.clientY);
   const { W, H } = fieldSize();
   const p = drag.piece;
-  p.x = Math.round(Math.max(-g.m, Math.min(W - g.size + g.m, pt.x - drag.dx)));
-  p.y = Math.round(Math.max(-g.m, Math.min(H - g.size + g.m, pt.y - drag.dy)));
+  p.x = Math.round(Math.max(-g.m, Math.min(W - g.cw + g.m, pt.x - drag.dx)));
+  p.y = Math.round(Math.max(-g.m, Math.min(H - g.ch + g.m, pt.y - drag.dy)));
   setPos(p);
 }
 
@@ -274,9 +282,9 @@ function onUp(e: PointerEvent): void {
   const { piece: p, from } = drag;
   drag = null;
   p.el.classList.remove("dragging");
-  const cx = p.x + g.size / 2;
-  const cy = p.y + g.size / 2;
-  const cell = cellAt(g.rows, g.cols, g.L.s, g.L.bx, g.L.by, cx, cy);
+  const cx = p.x + g.cw / 2;
+  const cy = p.y + g.ch / 2;
+  const cell = cellAt(g.rows, g.cols, g.L.pw, g.L.ph, g.L.bx, g.L.by, cx, cy);
   const moves = drop(g.st, p.index, from, { cell, x: cx, y: cy }, g.L.cells);
   for (const mv of moves) moveTo(g, g.pieces[mv.piece], mv.to, true);
   if (cell === null) returnSound();
@@ -328,14 +336,14 @@ function relayout(): void {
     const p = drag.piece;
     drag = null;
     p.el.classList.remove("dragging");
-    drop(g.st, p.index, null, { cell: null, x: p.x + g.size / 2, y: p.y + g.size / 2 }, g.L.cells);
+    drop(g.st, p.index, null, { cell: null, x: p.x + g.cw / 2, y: p.y + g.ch / 2 }, g.L.cells);
   }
   const { W, H } = fieldSize();
   // iPad Safari sends resize events without a real size change (toolbars, safe area); keep everything as is.
   if (W === g.W && H === g.H) return;
   g.W = W;
   g.H = H;
-  const { layout: L, ref } = layoutWithReference(g.rows, g.cols, W, H, REFERENCE);
+  const { layout: L, ref } = layoutWithReference(g.rows, g.cols, W, H, REFERENCE, g.pieceAspect);
   const n = g.rows * g.cols;
   const st: BoardState = { rows: g.rows, cols: g.cols, loc: Array(n).fill(null), tray: Array(L.cells.length).fill(null), board: Array(n).fill(null) };
   // Loose pieces are dealt out again in a random order, so they never line up in picture order.
@@ -413,10 +421,15 @@ export function debugState() {
   return {
     rows: g.rows,
     cols: g.cols,
-    s: g.L.s,
+    pw: g.L.pw,
+    ph: g.L.ph,
+    cell: g.L.cell,
     bx: g.L.bx,
     by: g.L.by,
-    size: g.size,
+    bw: g.L.bw,
+    bh: g.L.bh,
+    cw: g.cw,
+    ch: g.ch,
     cells: g.L.cells,
     loc: g.st.loc,
     pieces: g.pieces.map((p) => ({ x: p.x, y: p.y }))

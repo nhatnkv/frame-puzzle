@@ -4,7 +4,7 @@ import { getApp } from "../app";
 import { addPhoto, deletePhoto, getPhoto, listPhotos, touchPhoto } from "../data/photos";
 import { getSetting, setSetting } from "../data/settings";
 import { starsFor } from "../data/stars";
-import { cropRect, DEFAULT_COUNT, gridFor, makeEdges, outlinePath, pieceOutline, PIECE_COUNTS, rng, type Edges, type PieceCount } from "../puzzle/geometry";
+import { cropRect, DEFAULT_COUNT, makeEdges, outlinePath, pieceOutline, pieceSize, PIECE_COUNTS, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
 import { byId, h, twoTapDelete } from "../ui/dom";
 import { canvasToJpeg, downscale, loadImageFile, loadImageUrl, onFilePicked } from "../ui/images";
 import { onEnter } from "../ui/nav";
@@ -16,7 +16,7 @@ let photoId: number | null = null;
 let count: PieceCount = DEFAULT_COUNT;
 let editing = false;
 let loaded: { id: number; img: HTMLImageElement } | null = null;
-const previewEdges = new Map<number, Edges>();
+const previewEdges = new Map<string, Edges>();
 
 /** The picture as an image element, decoded once per selection. */
 export async function photoImage(id: number): Promise<HTMLImageElement> {
@@ -138,34 +138,36 @@ function render(): void {
   });
 }
 
-/** The picture cropped to the puzzle's shape with the jigsaw cut drawn on top. */
+/** The whole picture in the puzzle's shape with the jigsaw cut drawn on top. */
 function drawPreview(cv: HTMLCanvasElement, img: HTMLImageElement): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   cv.width = cv.height = PREVIEW * dpr;
   cv.style.width = cv.style.height = `${PREVIEW}px`;
   const x = cv.getContext("2d")!;
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const { rows, cols } = gridFor(count);
-  const s = Math.floor(Math.min(PREVIEW / cols, PREVIEW / rows));
-  const bw = cols * s;
-  const bh = rows * s;
+  const { rows, cols, pieceAspect } = shapeFor(count, img.width / img.height);
+  const size = Math.floor(Math.min(PREVIEW / cols / Math.min(1, pieceAspect), PREVIEW / rows / Math.min(1, 1 / pieceAspect)));
+  const { pw, ph } = pieceSize(size, pieceAspect);
+  const bw = cols * pw;
+  const bh = rows * ph;
   const ox = (PREVIEW - bw) / 2;
   const oy = (PREVIEW - bh) / 2;
-  let E = previewEdges.get(count);
+  const key = `${rows}x${cols}`;
+  let E = previewEdges.get(key);
   if (!E) {
     E = makeEdges(rows, cols, rng(count * 7919));
-    previewEdges.set(count, E);
+    previewEdges.set(key, E);
   }
   x.clearRect(0, 0, PREVIEW, PREVIEW);
-  const [sx, sy, sw, sh] = cropRect(img.width, img.height, cols / rows);
+  const [sx, sy, sw, sh] = cropRect(img.width, img.height, bw / bh);
   x.save();
   x.beginPath();
   x.roundRect(ox, oy, bw, bh, 16);
   x.clip();
   x.drawImage(img, sx, sy, sw, sh, ox, oy, bw, bh);
   x.strokeStyle = "rgba(255,255,255,0.95)";
-  x.lineWidth = s > 80 ? 3 : 2;
+  x.lineWidth = Math.min(pw, ph) > 80 ? 3 : 2;
   x.lineJoin = "round";
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) x.stroke(outlinePath(pieceOutline(r, c, s, E), -ox, -oy));
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) x.stroke(outlinePath(pieceOutline(r, c, pw, ph, E), -ox, -oy));
   x.restore();
 }
