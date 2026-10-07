@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#F6F3EE">
+  <meta name="description" content="Calm jigsaw puzzles for young children. Finish a picture, earn stars, trade them for gifts.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Frame Puzzle">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <title>Frame Puzzle</title>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="#E0A63A" stroke="#E0A63A" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></g></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></g></symbol>
+    <symbol id="i-photo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></g></symbol>
+    <symbol id="i-hint" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g></symbol>
+    <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z" fill="currentColor"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<main class="stage" id="stage">
+      <div class="loading" id="loading">Opening data…</div>
+
+    <!-- 0. Kid login -->
+    <section class="screen" id="s-login" aria-label="Who is playing" hidden>
+      <div class="topbar">
+        <div class="topbar-left"><h2 class="title">Who is playing?</h2></div>
+        <button class="text-btn" type="button" id="kidEdit">Edit</button>
+      </div>
+      <div class="kids" id="kidList"></div>
+      <p class="login-hint" id="loginHint" hidden>Parents: tap "Add child" to create a profile.</p>
+      <div class="overlay" id="kidFormWrap" hidden>
+        <form class="sheet kid-sheet" id="kidForm" role="dialog" aria-modal="true" aria-labelledby="kidFormTitle">
+          <h3 id="kidFormTitle">Add child</h3>
+          <div class="row">
+            <span class="avatar" id="kidFormAvatar"></span>
+            <div class="fields">
+              <input type="text" id="kidName" placeholder="Child's name" maxlength="16" required aria-label="Child's name">
+              <div class="swatches" id="kidSwatches" role="radiogroup" aria-label="Color"></div>
+              <span class="btn btn-secondary btn-small file-btn" style="align-self: flex-start"><svg><use href="#i-camera"/></svg>Photo<input type="file" id="kidImg" accept="image/*"></span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-secondary" type="button" id="kidCancel">Cancel</button>
+            <button class="btn btn-primary" type="submit"><svg><use href="#i-check"/></svg>Save</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- 1. Home -->
+    <section class="screen" id="s-home" aria-label="Home">
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="kid-chip" type="button" data-go="login" id="kidChip" aria-label="Switch child" hidden></button>
+          <button class="round-btn small" type="button" data-go="parent" id="parentBtn" aria-label="Parents" style="color: var(--muted); position: relative"><svg><use href="#i-settings"/></svg><span class="home-badge" id="giveBadge" hidden></span></button>
+        </div>
+        <div class="stars"><svg><use href="#i-star"/></svg><span data-stars>0</span></div>
+      </div>
+      <div class="home-center">
+        <div class="logo">
+          <svg width="120" height="84" viewBox="0 0 120 84" aria-hidden="true">
+            <path d="M6 10 H44 V28 C52 22 62 28 62 38 C62 48 52 54 44 48 V74 H6 Z" fill="#DCE9F4" stroke="#4F87B8" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M60 10 H112 V74 H60 V54 C68 58 76 52 76 42 C76 32 68 26 60 30 Z" fill="#FBEFD6" stroke="#E0A63A" stroke-width="3" stroke-linejoin="round"/>
+          </svg>
+          <h1>Frame Puzzle</h1>
+        </div>
+        <div class="home-cards">
+          <button class="home-card" type="button" data-go="choose">
+            <span class="bubble" style="background: var(--primary-soft); color: var(--primary)"><svg><use href="#i-puzzle"/></svg></span>
+            Play
+          </button>
+          <button class="home-card" type="button" data-go="shop">
+            <span class="bubble" style="background: var(--star-soft); color: #C98E22"><svg><use href="#i-gift"/></svg></span>
+            Gifts
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Choose picture and count -->
+    <section class="screen" id="s-choose" aria-label="Choose a picture" hidden>
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="round-btn" type="button" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+          <h2 class="title">Choose a picture</h2>
+        </div>
+        <div class="stars"><svg><use href="#i-star"/></svg><span data-stars>0</span></div>
+      </div>
+      <div class="choose-body">
+        <div class="preview-card"><canvas id="preview" width="440" height="440" aria-label="Preview with piece outlines"></canvas></div>
+        <div class="choose-side">
+          <div class="source-row">
+            <label class="source-btn"><svg style="color: var(--primary)"><use href="#i-photo"/></svg>Photo library<input id="pickPhoto" type="file" accept="image/*"></label>
+            <label class="source-btn"><svg style="color: var(--primary)"><use href="#i-camera"/></svg>Take photo<input id="takePhoto" type="file" accept="image/*" capture="environment"></label>
+          </div>
+          <div class="group">
+            <div class="label-row"><span class="label" id="libraryLabel">Your pictures</span><button class="text-btn" type="button" id="libEdit">Delete</button></div>
+            <div class="library" id="library"></div>
+          </div>
+          <div class="group">
+            <span class="label">Pieces</span>
+            <div class="count-grid" id="countGrid"></div>
+          </div>
+          <div class="start-row">
+            <button class="btn btn-primary" type="button" id="startBtn"><svg><use href="#i-play"/></svg>Start</button>
+            <div class="stars small"><svg><use href="#i-star"/></svg><span id="rewardPreview">+8</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Play -->
+    <section class="screen" id="s-play" aria-label="Puzzle" hidden style="padding: 0">
+      <div class="topbar play-top">
+        <div class="topbar-left" style="gap: 12px">
+          <button class="round-btn hold" type="button" id="exitBtn" aria-label="Hold for 2 seconds to leave" style="color: var(--muted)">
+            <svg><use href="#i-close"/></svg>
+            <svg class="ring" viewBox="0 0 76 76" aria-hidden="true"><circle cx="38" cy="38" r="36"/></svg>
+          </button>
+          <span class="hold-hint">Hold to leave</span>
+        </div>
+        <div class="progress"><svg style="color: var(--primary)"><use href="#i-puzzle"/></svg><span id="progress">0 / 4</span></div>
+        <button class="round-btn soft-star" type="button" id="hintBtn" aria-label="Hint" style="color: #C98E22"><svg><use href="#i-hint"/></svg></button>
+      </div>
+      <div class="toast" id="toast" role="status" hidden></div>
+      <div class="playfield" id="playfield"></div>
+    </section>
+
+    <!-- 4. Done -->
+    <section class="screen" id="s-done" aria-label="Finished" hidden>
+      <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
+      <div class="topbar">
+        <span></span>
+        <div class="stars"><svg><use href="#i-star"/></svg><span data-stars>0</span></div>
+      </div>
+      <div class="done-body">
+        <div class="done-frame"><canvas id="doneCanvas" width="460" height="460"></canvas><span class="shine"></span></div>
+        <div class="done-side">
+          <h2>Well done!</h2>
+          <div class="earn"><svg><use href="#i-star"/></svg><span id="earned">+8</span></div>
+          <div class="done-actions">
+            <button class="btn btn-primary" type="button" data-go="choose" id="againBtn"><svg><use href="#i-play"/></svg>Play again</button>
+            <button class="btn btn-secondary" type="button" data-go="home"><svg><use href="#i-home"/></svg>Home</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Shop -->
+    <section class="screen" id="s-shop" aria-label="Gifts" hidden>
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="round-btn" type="button" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+          <h2 class="title">Gifts</h2>
+        </div>
+        <div class="stars"><svg><use href="#i-star"/></svg><span data-stars>0</span></div>
+      </div>
+      <div class="shop-grid" id="shopGrid"></div>
+      <div class="group">
+        <span class="label">My gifts</span>
+        <div class="mine" id="mineRow"></div>
+      </div>
+      <div class="overlay" id="confirm" hidden>
+        <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+          <div class="pic" id="confirmPic"></div>
+          <h3 id="confirmTitle">Get this gift?</h3>
+          <p id="confirmText"></p>
+          <div class="actions">
+            <button class="btn btn-secondary" type="button" id="confirmNo">Not now</button>
+            <button class="btn btn-primary" type="button" id="confirmYes"><svg><use href="#i-check"/></svg>Yes</button>
+          </div>
+        </div>
+      </div>
+      <div class="overlay" id="redeemed" hidden>
+        <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="redeemedTitle">
+          <div class="pic" id="redeemedPic"></div>
+          <h3 id="redeemedTitle">It's yours!</h3>
+          <p>Ask Mom or Dad for your gift.</p>
+          <div class="actions"><button class="btn btn-primary" type="button" id="redeemedOk">OK</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Parent -->
+    <section class="screen" id="s-parent" aria-label="Parents" hidden>
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="round-btn" type="button" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+          <h2 class="title">Parents</h2>
+        </div>
+        <div class="stars"><svg><use href="#i-star"/></svg><span data-stars>0</span></div>
+      </div>
+      <div class="parent-body">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Gift list</h2>
+            <button class="btn btn-primary btn-small" type="button" id="addGiftBtn"><svg><use href="#i-plus"/></svg>Add gift</button>
+          </div>
+          <form class="form" id="giftForm" hidden>
+            <label for="giftName">Name</label>
+            <input type="text" id="giftName" placeholder="e.g. An ice cream" maxlength="40" required>
+            <label for="giftPrice">Price (stars)</label>
+            <input type="number" id="giftPrice" min="1" max="999" value="20" required>
+            <label for="giftImg">Picture</label>
+            <div class="pick">
+              <span class="thumb" id="giftThumb"><svg style="color:#C98E22"><use href="#i-gift"/></svg></span>
+              <span class="btn btn-secondary btn-small file-btn"><svg><use href="#i-photo"/></svg>Choose<input type="file" id="giftImg" accept="image/*"></span>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-secondary btn-small" type="button" id="giftCancel">Cancel</button>
+              <button class="btn btn-primary btn-small" type="submit"><svg><use href="#i-check"/></svg>Save</button>
+            </div>
+          </form>
+          <div class="list" id="giftList"></div>
+        </div>
+        <div class="panel">
+          <h2>Gifts to hand out</h2>
+          <div class="list" id="redeemList" style="flex-grow: 1"></div>
+          <h2>Settings</h2>
+          <div class="setting">
+            <b id="starLabel">Stars</b>
+            <div class="stepper">
+              <button class="icon-btn" type="button" id="starMinus" aria-label="Remove 10 stars"><svg><use href="#i-minus"/></svg></button>
+              <output id="starOut">0</output>
+              <button class="icon-btn" type="button" id="starPlus" aria-label="Add 10 stars"><svg><use href="#i-plus"/></svg></button>
+            </div>
+          </div>
+          <p class="note" id="dbInfo">SQLite</p>
+          <div class="setting">
+            <b id="soundLabel">Sound</b>
+            <button class="toggle" type="button" role="switch" id="soundToggle" aria-labelledby="soundLabel" aria-checked="true"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+</main>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
