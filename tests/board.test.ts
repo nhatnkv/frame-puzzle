@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellAt, deal, drop, isFull, isSolved, lift, piecesOnBoard, shuffledCells } from "../src/puzzle/board";
+import { cellAt, deal, dealOrder, drop, isFull, isSolved, lift, piecesOnBoard, shuffledCells } from "../src/puzzle/board";
 import { rng } from "../src/puzzle/geometry";
 import type { Cell } from "../src/puzzle/layout";
 
@@ -89,5 +89,26 @@ describe("cellAt", () => {
     expect(cellAt(2, 2, 100, 300, 100, 450, 250)).toBe(3);
     expect(cellAt(2, 2, 100, 300, 100, 290, 150)).toBe(0);
     expect(cellAt(2, 2, 100, 300, 100, 200, 150)).toBeNull();
+  });
+
+  it("deals pieces to random cells, never in picture order", () => {
+    const rand = rng(11);
+    for (const [cells, n] of [
+      [2, 2],
+      [4, 4],
+      [6, 4],
+      [12, 9],
+      [50, 49]
+    ]) {
+      for (let t = 0; t < 200; t++) {
+        const o = dealOrder(cells, n, rand);
+        expect(o).toHaveLength(n);
+        expect(new Set(o).size).toBe(n);
+        expect(o.every((c) => c >= 0 && c < cells)).toBe(true);
+        expect(o.some((c, i) => i > 0 && c < o[i - 1])).toBe(true);
+      }
+    }
+    expect(dealOrder(3, 1, rand)).toHaveLength(1);
+    expect(() => dealOrder(3, 4, rand)).toThrow();
   });
 });

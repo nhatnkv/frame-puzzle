@@ -130,6 +130,30 @@ test("loose pieces never overlap and a piece dropped outside the frame goes back
   await expect(page.locator("#progress")).toHaveText("0 / 49");
 });
 
+test("loose pieces start in a random order and stay put on a resize without a size change", async ({ page }) => {
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await startPuzzle(page, 9);
+  const inPictureOrder = (s: FrameState) => {
+    const cells = s.loc.filter((l) => l.kind === "tray").map((l) => l.index!);
+    return cells.every((c, i) => i === 0 || c > cells[i - 1]);
+  };
+  const before = await frame(page);
+  expect(inPictureOrder(before)).toBe(false);
+  // iPad Safari fires resize events when its toolbars move; the pieces must not be dealt again.
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+  await page.waitForTimeout(100);
+  expect((await frame(page)).pieces).toEqual(before.pieces);
+  // A real size change lays the pieces out again, still in a random order.
+  await dragPiece(page, 4, 4);
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.waitForTimeout(300);
+  const after = await frame(page);
+  expect(after.loc[4]).toEqual({ kind: "board", cell: 4 });
+  expect(inPictureOrder(after)).toBe(false);
+});
+
 test("parents add a gift, the child trades stars for it, and parents hand it out", async ({ page }) => {
   await open(page);
   await addKid(page, "Bin");

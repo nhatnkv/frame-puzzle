@@ -42,6 +42,18 @@ export function shuffledCells(trayCount: number, rand: () => number): number[] {
   return a;
 }
 
+/**
+ * Waiting cells for `n` pieces, in a random order that never follows the picture's order
+ * (piece 0 in the first cell, piece 1 in a later one, and so on), which would make the puzzle too easy.
+ */
+export function dealOrder(trayCount: number, n: number, rand: () => number): number[] {
+  if (trayCount < n) throw new Error("Not enough waiting cells");
+  for (;;) {
+    const order = shuffledCells(trayCount, rand).slice(0, n);
+    if (n < 2 || order.some((cell, i) => i > 0 && cell < order[i - 1])) return order;
+  }
+}
+
 function place(st: BoardState, piece: number, at: Loc): void {
   if (at.kind === "tray") st.tray[at.index] = piece;
   else st.board[at.cell] = piece;

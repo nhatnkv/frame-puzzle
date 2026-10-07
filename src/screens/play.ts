@@ -1,7 +1,7 @@
 // The puzzle screen: a wooden frame with every slot's outline drawn on a gray board, and the
 // pieces waiting around it. The child drags pieces in and out; see src/puzzle/board.ts for the rules.
 
-import { cellAt, deal, drop, isCorrect, isFull, isSolved, lift, piecesOnBoard, shuffledCells, type BoardState, type Loc } from "../puzzle/board";
+import { cellAt, deal, dealOrder, drop, isCorrect, isFull, isSolved, lift, piecesOnBoard, type BoardState, type Loc } from "../puzzle/board";
 import { cropRect, gridFor, makeEdges, outlinePath, pieceOutline, rng, type Edges, type PieceCount } from "../puzzle/geometry";
 import { FRAME_BORDER, layoutFor, pieceMargin, type Layout } from "../puzzle/layout";
 import { byId, h } from "../ui/dom";
@@ -45,6 +45,9 @@ interface Game {
   z: number;
   hint: number | null;
   finished: boolean;
+  /** Playfield size the layout was made for. */
+  W: number;
+  H: number;
 }
 
 interface Drag {
@@ -72,7 +75,7 @@ export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageEl
   go("play");
   const { W, H } = fieldSize();
   const L = layoutFor(rows, cols, W, H);
-  const order = shuffledCells(L.cells.length, rng(seed + 1)).slice(0, rows * cols);
+  const order = dealOrder(L.cells.length, rows * cols, rng(seed + 1));
   game = {
     photoId,
     rows,
@@ -89,7 +92,9 @@ export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageEl
     pieces: [],
     z: 100,
     hint: null,
-    finished: false
+    finished: false,
+    W,
+    H
   };
   hideToast();
   build(game);
@@ -312,17 +317,25 @@ function relayout(): void {
     drop(g.st, p.index, null, { cell: null, x: p.x + g.size / 2, y: p.y + g.size / 2 }, g.L.cells);
   }
   const { W, H } = fieldSize();
+  // iPad Safari sends resize events without a real size change (toolbars, safe area); keep everything as is.
+  if (W === g.W && H === g.H) return;
+  g.W = W;
+  g.H = H;
   const L = layoutFor(g.rows, g.cols, W, H);
   const n = g.rows * g.cols;
   const st: BoardState = { rows: g.rows, cols: g.cols, loc: Array(n).fill(null), tray: Array(L.cells.length).fill(null), board: Array(n).fill(null) };
+  // Loose pieces are dealt out again in a random order, so they never line up in picture order.
+  const loose = g.st.loc.filter((loc) => loc?.kind !== "board").length;
+  const order = dealOrder(L.cells.length, loose, Math.random);
   let next = 0;
   g.st.loc.forEach((loc, piece) => {
     if (loc?.kind === "board") {
       st.board[loc.cell] = piece;
       st.loc[piece] = loc;
     } else {
-      st.tray[next] = piece;
-      st.loc[piece] = { kind: "tray", index: next++ };
+      const index = order[next++];
+      st.tray[index] = piece;
+      st.loc[piece] = { kind: "tray", index };
     }
   });
   g.L = L;
