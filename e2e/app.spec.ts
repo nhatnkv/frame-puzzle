@@ -123,6 +123,16 @@ test("loose pieces never overlap and a piece dropped outside the frame goes back
       expect(apart, `pieces ${i} and ${j} overlap`).toBe(true);
     }
   }
+  // The whole picture sits in the top-right corner; no waiting piece and no button covers it.
+  const clear = await page.evaluate(() => {
+    const r = document.querySelector(".ref-card")!.getBoundingClientRect();
+    const hit = (b: DOMRect) => b.left < r.right && r.left < b.right && b.top < r.bottom && r.top < b.bottom;
+    const pieces = [...document.querySelectorAll<HTMLElement>(".piece")].filter((p) => hit(p.getBoundingClientRect()));
+    return { w: r.width, right: window.innerWidth - r.right, pieces: pieces.length, hint: hit(document.getElementById("hintBtn")!.getBoundingClientRect()) };
+  });
+  expect(clear).toMatchObject({ pieces: 0, hint: false });
+  expect(clear.w).toBeGreaterThan(150);
+  expect(clear.right).toBeLessThan(60);
   await dragPiece(page, 5, 20);
   expect((await frame(page)).loc[5]).toEqual({ kind: "board", cell: 20 });
   await dragPiece(page, 5, "outside");

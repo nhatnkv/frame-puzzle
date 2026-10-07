@@ -3,7 +3,7 @@
 
 import { cellAt, deal, dealOrder, drop, isCorrect, isFull, isSolved, lift, piecesOnBoard, type BoardState, type Loc } from "../puzzle/board";
 import { cropRect, gridFor, makeEdges, outlinePath, pieceOutline, rng, type Edges, type PieceCount } from "../puzzle/geometry";
-import { FRAME_BORDER, layoutFor, pieceMargin, type Layout } from "../puzzle/layout";
+import { FRAME_BORDER, layoutWithReference, pieceMargin, REF_PAD, type Layout, type Rect } from "../puzzle/layout";
 import { byId, h } from "../ui/dom";
 import { current, go, onEnter } from "../ui/nav";
 import { returnSound, snapSound, unlockAudio } from "../ui/sound";
@@ -11,6 +11,8 @@ import { stageSize, toStage } from "../ui/stage";
 
 const TOP_BAR = 104;
 const HINT_MS = 2500;
+/** The whole picture in the top-right corner, for the child to look at while building it. */
+const REFERENCE = { top: 16 - TOP_BAR, right: 36, max: 180 };
 
 export interface Solved {
   photoId: number;
@@ -35,6 +37,8 @@ interface Game {
   img: HTMLImageElement;
   E: Edges;
   L: Layout;
+  /** The reference picture's card. */
+  ref: Rect;
   m: number;
   size: number;
   dpr: number;
@@ -74,7 +78,7 @@ export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageEl
   const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) | 0;
   go("play");
   const { W, H } = fieldSize();
-  const L = layoutFor(rows, cols, W, H);
+  const { layout: L, ref } = layoutWithReference(rows, cols, W, H, REFERENCE);
   const order = dealOrder(L.cells.length, rows * cols, rng(seed + 1));
   game = {
     photoId,
@@ -83,6 +87,7 @@ export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageEl
     img,
     E: makeEdges(rows, cols, rng(seed)),
     L,
+    ref,
     m: 0,
     size: 0,
     dpr: Math.min(window.devicePixelRatio || 1, 2),
@@ -121,6 +126,15 @@ function build(g: Game): void {
       style: `left: ${bx - FRAME_BORDER}px; top: ${by - FRAME_BORDER}px; width: ${bw + 2 * FRAME_BORDER}px; height: ${bh + 2 * FRAME_BORDER}px`
     })
   );
+
+  // The reference picture, with the hint button moved to its left.
+  const { x: rx, y: ry, w: rw, h: rh } = g.ref;
+  const refArt = h("canvas", { "aria-hidden": "true" });
+  refArt.width = Math.round((rw - 2 * REF_PAD) * dpr);
+  refArt.height = Math.round((rh - 2 * REF_PAD) * dpr);
+  refArt.getContext("2d")!.drawImage(g.art, 0, 0, refArt.width, refArt.height);
+  pf.append(h("div", { class: "ref-card", style: `left: ${rx}px; top: ${ry}px; width: ${rw}px; height: ${rh}px` }, refArt));
+  byId("hintBtn").style.marginRight = `${rw + 16}px`;
 
   g.slots.className = "slots";
   g.slots.width = Math.round(bw * dpr);
@@ -321,7 +335,7 @@ function relayout(): void {
   if (W === g.W && H === g.H) return;
   g.W = W;
   g.H = H;
-  const L = layoutFor(g.rows, g.cols, W, H);
+  const { layout: L, ref } = layoutWithReference(g.rows, g.cols, W, H, REFERENCE);
   const n = g.rows * g.cols;
   const st: BoardState = { rows: g.rows, cols: g.cols, loc: Array(n).fill(null), tray: Array(L.cells.length).fill(null), board: Array(n).fill(null) };
   // Loose pieces are dealt out again in a random order, so they never line up in picture order.
@@ -339,6 +353,7 @@ function relayout(): void {
     }
   });
   g.L = L;
+  g.ref = ref;
   g.st = st;
   build(g);
 }
