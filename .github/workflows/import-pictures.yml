@@ -1,0 +1,45 @@
+name: Import generated pictures
+
+# Temporary helper: the development machine cannot reach figma.com, so a runner downloads the
+# pictures generated with Figma AI, saves them as JPEG and commits them for review.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pictures:
+        description: "Space-separated name=url pairs"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pillow
+      - name: Download and convert
+        env:
+          PICTURES: ${{ inputs.pictures }}
+        run: |
+          mkdir -p src/pictures /tmp/raw
+          for pair in $PICTURES; do
+            name="${pair%%=*}"
+            url="${pair#*=}"
+            case "$name" in ""|*[!a-z0-9-]*) echo "Bad name: $name"; exit 1 ;; esac
+            case "$url" in https://www.figma.com/api/mcp/asset/*) ;; *) echo "Bad URL for $name"; exit 1 ;; esac
+            curl -fsSL -o "/tmp/raw/$name.png" "$url"
+            python -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], quality=90, optimize=True, progressive=True)' "/tmp/raw/$name.png" "src/pictures/$name.jpg"
+          done
+          ls -la src/pictures
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pictures
+          git commit -m "Add generated pictures for review"
+          git push
