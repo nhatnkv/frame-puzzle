@@ -276,10 +276,7 @@ function onUp(e: PointerEvent): void {
 function finish(g: Game): void {
   g.finished = true;
   hideToast();
-  // Let the last piece settle before moving on.
-  setTimeout(() => {
-    if (game === g) onSolved({ photoId: g.photoId, pieces: g.pieces.length, art: g.art });
-  }, 700);
+  onSolved({ photoId: g.photoId, pieces: g.pieces.length, art: g.art });
 }
 
 /** Lights up the right slot for one misplaced piece and wiggles that piece. */

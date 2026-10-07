@@ -9,7 +9,7 @@ import { FileStore } from "./db/files";
 import { idbKV } from "./db/kv";
 import { seedSamples } from "./samples";
 import { setupChoose } from "./screens/choose";
-import { showDone } from "./screens/done";
+import { completePuzzle } from "./screens/done";
 import { setupHome } from "./screens/home";
 import { requireKid, setupLogin } from "./screens/login";
 import { debugState, setupPlay, startPuzzle } from "./screens/play";
@@ -49,7 +49,7 @@ async function boot(): Promise<void> {
   });
   setupHome();
   setupChoose(startPuzzle);
-  setupPlay(showDone);
+  setupPlay(completePuzzle);
 
   for (const s of ["login", "home", "choose", "play", "done", "shop", "parent"] as const) onEnter(s, () => renderStars());
   setGuard(requireKid);
