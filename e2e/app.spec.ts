@@ -45,8 +45,11 @@ async function startPuzzle(page: Page, pieces: number) {
 
 const frame = (page: Page) => page.evaluate(() => (window as unknown as { __frame: () => FrameState }).__frame());
 
-/** Drags a piece by its centre to a frame cell, or to the empty top-left corner of the playfield. */
-async function dragPiece(page: Page, piece: number, cell: number | "outside") {
+/**
+ * Drags a piece by its centre to a frame cell, or to the empty top-left corner of the playfield.
+ * `midway` runs while the piece is held, halfway there.
+ */
+async function dragPiece(page: Page, piece: number, cell: number | "outside", midway?: () => Promise<void>) {
   const s = await frame(page);
   const g = await page.evaluate(() => {
     const pf = document.getElementById("playfield")!.getBoundingClientRect();
@@ -64,6 +67,10 @@ async function dragPiece(page: Page, piece: number, cell: number | "outside") {
         ];
   await page.mouse.move(from[0], from[1]);
   await page.mouse.down();
+  if (midway) {
+    await page.mouse.move((from[0] + to[0]) / 2, (from[1] + to[1]) / 2, { steps: 3 });
+    await midway();
+  }
   await page.mouse.move(to[0], to[1], { steps: 6 });
   await page.mouse.up();
   // Let the glide animation finish before the next drag reads positions.
@@ -157,12 +164,17 @@ test("loose pieces start in a random order and stay put on a resize without a si
   };
   const before = await frame(page);
   expect(inPictureOrder(before)).toBe(false);
-  // iPad Safari fires resize events when its toolbars move; the pieces must not be dealt again.
-  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
-  await page.waitForTimeout(100);
+  // iPad Safari fires resize events when its toolbars move, even in the middle of a drag; the
+  // pieces must not be dealt again and the piece being dragged must not be let go.
+  const toolbarResize = async () => {
+    await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+    await page.waitForTimeout(100);
+  };
+  await toolbarResize();
   expect((await frame(page)).pieces).toEqual(before.pieces);
+  await dragPiece(page, 4, 4, toolbarResize);
+  expect((await frame(page)).loc[4]).toEqual({ kind: "board", cell: 4 });
   // A real size change lays the pieces out again, still in a random order.
-  await dragPiece(page, 4, 4);
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.waitForTimeout(300);
   const after = await frame(page);

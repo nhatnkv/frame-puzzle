@@ -332,15 +332,16 @@ function showHint(): void {
 function relayout(): void {
   const g = game;
   if (!g || current() !== "play") return;
+  const { W, H } = fieldSize();
+  // iPad Safari sends resize events without a real size change (toolbars, safe area), even in the
+  // middle of a drag; keep everything as is, including the piece in the child's hand.
+  if (W === g.W && H === g.H) return;
   if (drag) {
     const p = drag.piece;
     drag = null;
     p.el.classList.remove("dragging");
     drop(g.st, p.index, null, { cell: null, x: p.x + g.cw / 2, y: p.y + g.ch / 2 }, g.L.cells);
   }
-  const { W, H } = fieldSize();
-  // iPad Safari sends resize events without a real size change (toolbars, safe area); keep everything as is.
-  if (W === g.W && H === g.H) return;
   g.W = W;
   g.H = H;
   const { layout: L, ref } = layoutWithReference(g.rows, g.cols, W, H, REFERENCE, g.pieceAspect);
