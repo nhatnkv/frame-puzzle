@@ -9,8 +9,10 @@ import { FileStore } from "./db/files";
 import { idbKV } from "./db/kv";
 import { seedSamples } from "./samples";
 import { setupChoose } from "./screens/choose";
+import { showDone } from "./screens/done";
 import { setupHome } from "./screens/home";
 import { requireKid, setupLogin } from "./screens/login";
+import { debugState, setupPlay, startPuzzle } from "./screens/play";
 import { byId } from "./ui/dom";
 import { go, onEnter, setGuard, wireNavigation } from "./ui/nav";
 import { mountStage } from "./ui/stage";
@@ -46,11 +48,15 @@ async function boot(): Promise<void> {
     go("home");
   });
   setupHome();
-  setupChoose(() => go("play"));
+  setupChoose(startPuzzle);
+  setupPlay(showDone);
 
   for (const s of ["login", "home", "choose", "play", "done", "shop", "parent"] as const) onEnter(s, () => renderStars());
   setGuard(requireKid);
   wireNavigation(stage);
+
+  // Lets end-to-end tests find the pieces.
+  (window as unknown as { __frame: unknown }).__frame = debugState;
 
   byId("loading").hidden = true;
   go("login");
