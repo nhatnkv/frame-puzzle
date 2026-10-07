@@ -57,7 +57,7 @@ The UI is laid out at iPad size (1194x834 stage units) and scaled to fill the sc
 
 ## Deploy
 
-`.github/workflows/deploy.yml` builds and publishes `dist/` to GitHub Pages on every push to `main`, or when run by hand from the Actions tab. One-time setup: repository **Settings > Pages > Source: GitHub Actions**. GitHub Pages on a private repository needs a paid GitHub plan; otherwise make the repository public (the code holds no family data) or host `dist/` on any static host (Cloudflare Pages, Netlify).
+The app is live at https://nhatnkv.github.io/frame-puzzle/. `.github/workflows/deploy.yml` builds and publishes `dist/` to GitHub Pages on every push to the default branch, or when run by hand from the Actions tab. One-time setup (done): the repository is public (the code holds no family data) and **Settings > Pages > Source** is **GitHub Actions**.
 
 ## Design and milestones
 
