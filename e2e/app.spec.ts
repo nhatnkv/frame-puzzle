@@ -305,6 +305,10 @@ test("hints run out after 5 at hard, cost more and more stars at extreme and are
     await expect(page.locator("#s-home")).toBeVisible();
   };
 
+  await startPuzzle(page, 4, "Ultimate");
+  await expect(page.locator("#hintBtn")).toBeHidden();
+  await leave();
+
   await startPuzzle(page, 4, "Extreme");
   // 1%, 1%, 2%, 3%, ... of the stars, rounded up: 4 stars go down by one each time here.
   for (const [pct, stars] of [["1", "3"], ["1", "2"], ["2", "1"], ["3", "0"]]) {
@@ -312,11 +316,9 @@ test("hints run out after 5 at hard, cost more and more stars at extreme and are
     await page.click("#hintBtn");
     await expect(page.locator("#playStars")).toHaveText(stars);
   }
+  // Never below zero, and with no stars to pay, no more hints.
   await expect(page.locator("#hintLeft")).toHaveText("-5%");
-  await leave();
-
-  await startPuzzle(page, 4, "Ultimate");
-  await expect(page.locator("#hintBtn")).toBeHidden();
+  await expect(page.locator("#hintBtn")).toBeDisabled();
   await leave();
 
   await startPuzzle(page, 4, "Hard");
@@ -327,6 +329,36 @@ test("hints run out after 5 at hard, cost more and more stars at extreme and are
   }
   await expect(page.locator("#hintBtn")).toBeDisabled();
   await expect(page.locator("#playStars")).toHaveText("0");
+});
+
+test("at ultimate, losing the last star ends the puzzle and locks ultimate until the child earns more", async ({ page }) => {
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await startPuzzle(page, 2);
+  await dragPiece(page, 0, 0);
+  await dragPiece(page, 1, 1);
+  await page.click("#s-done [data-go=home]");
+  await startPuzzle(page, 2, "Ultimate");
+  for (const stars of ["3", "2", "1", "0"]) {
+    await dragPiece(page, 0, 1);
+    await expect(page.locator("#playStars")).toHaveText(stars);
+    if (stars !== "0") await page.waitForTimeout(600);
+  }
+  await expect(page.locator("#s-choose")).toBeVisible();
+  await expect(page.locator(".level-btn", { hasText: "Ultimate" })).toBeDisabled();
+  await expect(page.locator(".level-btn", { hasText: "Extreme" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#s-choose [data-stars]")).toHaveText("0");
+
+  // A finished picture brings stars, and Ultimate back.
+  await page.locator(".count-btn", { hasText: /^2$/ }).click();
+  await page.locator(".level-btn", { hasText: "Easy" }).click();
+  await page.click("#startBtn");
+  await dragPiece(page, 0, 0);
+  await dragPiece(page, 1, 1);
+  await page.click("#s-done [data-go=home]");
+  await page.click(".home-card[data-go=choose]");
+  await expect(page.locator(".level-btn", { hasText: "Ultimate" })).toBeEnabled();
 });
 
 test("loose pieces never overlap and a piece dropped outside the frame goes back to the side", async ({ page }) => {

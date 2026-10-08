@@ -5,8 +5,8 @@ import { getApp } from "../app";
 import { addPhoto, deletePhoto, getPhoto, isBuiltin, listPhotos, touchPhoto, type Photo } from "../data/photos";
 import { builtinUrl, categoryOf, type Category } from "../pictures";
 import { getSetting, setSetting } from "../data/settings";
-import { starsFor } from "../data/stars";
-import { DEFAULT_LEVEL, isLevel, LEVELS, scattersOnMistake, type Level } from "../puzzle/levels";
+import { starsFor, starTotal } from "../data/stars";
+import { DEFAULT_LEVEL, isLevel, LEVELS, playable, scattersOnMistake, type Level } from "../puzzle/levels";
 import { cropRect, DEFAULT_COUNT, makeEdges, outlinePath, pieceOutline, pieceSize, PIECE_COUNTS, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
 import { byId, h, icon, twoTapDelete } from "../ui/dom";
 import { HEAT } from "../ui/heat";
@@ -204,12 +204,21 @@ function render(): void {
       return b;
     })
   );
+  // Ultimate is locked while the child has no stars to lose; Extreme stands in for it.
+  const stars = getApp().kid ? starTotal(getApp().db, getApp().kid!.id) : 0;
+  if (!playable(level, stars)) level = "extreme";
   byId("levelRow").replaceChildren(
     ...LEVELS.map((lv) => {
       const on = lv === level;
       const b = h(
         "button",
-        { type: "button", class: `level-btn${on ? " on" : ""}${scattersOnMistake(lv) ? " wild" : ""}`, "aria-pressed": on ? "true" : "false" },
+        {
+          type: "button",
+          class: `level-btn${on ? " on" : ""}${scattersOnMistake(lv) ? " wild" : ""}`,
+          "aria-pressed": on ? "true" : "false",
+          disabled: !playable(lv, stars),
+          title: playable(lv, stars) ? null : "Needs stars to play"
+        },
         icon(LEVEL_UI[lv].icon),
         LEVEL_UI[lv].label
       );

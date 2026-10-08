@@ -5,7 +5,7 @@
 // the frame back out; at Ultimate it also costs stars, shown beside the close button.
 
 import { currentKid, getApp, renderStars } from "../app";
-import { chargeStars } from "../data/stars";
+import { chargeStars, starTotal } from "../data/stars";
 import { cellAt, deal, dealOrder, drop, isCorrect, isFull, isSolved, lift, piecesOnBoard, scatter, type BoardState, type Loc } from "../puzzle/board";
 import { cropRect, makeEdges, outlinePath, pieceOutline, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
 import { FRAME_BORDER, layoutWithReference, pieceMargin, REF_PAD, type Layout, type Rect } from "../puzzle/layout";
@@ -20,6 +20,8 @@ const TOP_BAR = 104;
 const HINT_MS = 2500;
 /** At Extreme and Ultimate, how long a wrong piece shows in its slot before every piece jumps out. */
 const SCATTER_MS = 400;
+/** At Ultimate, how long the child sees the counter reach 0 before the puzzle closes. */
+const OUT_OF_STARS_MS = 1400;
 /** A touch that moves less than this (stage units) and lets go within TAP_MS is a tap, not a drag. */
 const TAP_SLOP = 10;
 const TAP_MS = 500;
@@ -102,6 +104,7 @@ let zoom: HTMLElement | null = null;
 let onSolved: (s: Solved) => void = () => {};
 
 const field = () => byId("playfield");
+const stars = () => starTotal(getApp().db, currentKid().id);
 const fieldSize = () => {
   const s = stageSize();
   return { W: s.width, H: s.height - TOP_BAR };
@@ -398,6 +401,14 @@ function mistake(g: Game): void {
     const lost = chargeStars(db, currentKid().id, "mistake");
     void db.flush();
     if (lost) loseStars(lost);
+    // No stars left to lose: Ultimate ends, and stays locked until the child earns some.
+    if (stars() === 0) {
+      setTimeout(() => {
+        if (game !== g || current() !== "play") return;
+        game = null;
+        go("choose");
+      }, OUT_OF_STARS_MS);
+    }
   }
   setTimeout(() => {
     if (game !== g) return;
@@ -440,6 +451,7 @@ function finish(g: Game): void {
 function showHint(): void {
   const g = game;
   if (!g || g.finished || g.busy || g.hintsUsed >= hintLimit(g.level)) return;
+  if (hintCostsStars(g.level) && stars() === 0) return;
   const wrong = g.pieces.filter((p) => !pieceDone(g, p.index) && p !== drag?.piece);
   if (!wrong.length) return;
   if (hintCostsStars(g.level)) {
@@ -481,7 +493,9 @@ function renderHint(g: Game): void {
   const left = limit - g.hintsUsed;
   byId("hintWrap").hidden = limit === 0;
   const btn = byId<HTMLButtonElement>("hintBtn");
-  btn.disabled = left <= 0;
+  // At Extreme a hint needs stars to pay for it.
+  const broke = hintCostsStars(g.level) && stars() === 0;
+  btn.disabled = left <= 0 || broke;
   const label = byId("hintLeft");
   label.hidden = !Number.isFinite(limit) && !hintCostsStars(g.level);
   const heat = HEAT[Math.min(HEAT.length - 1, g.hintsUsed)];
@@ -492,7 +506,7 @@ function renderHint(g: Game): void {
   } else if (hintCostsStars(g.level)) {
     const pct = hintPercent(g.hintsUsed);
     label.textContent = `-${pct}%`;
-    label.style.color = heat;
+    label.style.color = broke ? "var(--muted)" : heat;
     btn.setAttribute("aria-label", `Hint, costs ${pct}% of your stars`);
   } else {
     btn.setAttribute("aria-label", "Hint");

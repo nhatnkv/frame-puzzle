@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rng } from "../src/puzzle/geometry";
-import { costsStars, dealPoses, facesRight, isLevel, LEVELS, hintCostsStars, hintLimit, hintPercent, starCost, poseExtent, poseStyle, rightPose, scattersOnMistake, starsPerPiece, turns, unturn, type Level } from "../src/puzzle/levels";
+import { costsStars, dealPoses, facesRight, isLevel, LEVELS, hintCostsStars, hintLimit, hintPercent, playable, starCost, poseExtent, poseStyle, rightPose, scattersOnMistake, starsPerPiece, turns, unturn, type Level } from "../src/puzzle/levels";
 import { starsFor } from "../src/data/stars";
 
 /** Where CSS puts a point (relative to the centre) for the pose: mirror, or turn clockwise on screen. */
@@ -40,6 +40,11 @@ describe("levels", () => {
     expect([0, 1, 2, 3, 4, 5, 6].map(hintPercent)).toEqual([1, 1, 2, 3, 5, 8, 13]);
     expect([0, 1, 2, 3, 4].map((used) => starCost(250, hintPercent(used)))).toEqual([3, 3, 5, 8, 13]);
     expect(starCost(10, hintPercent(20))).toBe(10);
+  });
+
+  it("locks Ultimate while the child has no stars", () => {
+    expect(LEVELS.filter((l) => playable(l, 0))).toEqual(["easy", "medium", "hard", "extreme"]);
+    expect(LEVELS.every((l) => playable(l, 1))).toBe(true);
   });
 
   it("allows 5 hints at Hard, none at Ultimate and any number otherwise", () => {

@@ -32,6 +32,11 @@ export function costsStars(level: Level): boolean {
   return level === "ultimate";
 }
 
+/** Ultimate takes stars for every mistake, so it can only be played while the child has some. */
+export function playable(level: Level, stars: number): boolean {
+  return level !== "ultimate" || stars > 0;
+}
+
 /** How many hints one puzzle allows: 5 at Hard, none at Ultimate, no limit otherwise. */
 export function hintLimit(level: Level): number {
   return level === "hard" ? 5 : level === "ultimate" ? 0 : Infinity;

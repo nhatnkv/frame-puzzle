@@ -114,6 +114,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .level-btn.on { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
 .level-btn.wild.on { background: var(--danger); border-color: var(--danger); }
 .level-btn.on svg { color: var(--primary-ink); }
+.level-btn:disabled { opacity: 0.4; cursor: default; }
 /* What the chosen level does, coloured from green (Easy) to red (Ultimate) as it gets harder. */
 .level-note { margin: -4px 0 0; font-size: 14px; font-weight: 700; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .start-row { display: flex; align-items: center; gap: 20px; }
