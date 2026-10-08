@@ -1,9 +1,9 @@
 import { AppDb, now } from "../db/database";
-import { starsPerPiece, type Level } from "../puzzle/levels";
+import { starCost, starsPerPiece, type Level } from "../puzzle/levels";
 
-export type StarReason = "puzzle" | "redeem" | "parent";
+export type StarReason = "puzzle" | "redeem" | "parent" | "mistake" | "hint";
 
-/** Stars earned for finishing a puzzle: 2 a piece at easy, 3 at medium, 4 at hard. */
+/** Stars earned for finishing a puzzle; see `starsPerPiece`. */
 export function starsFor(pieces: number, level: Level = "easy"): number {
   return pieces * starsPerPiece(level);
 }
@@ -28,6 +28,13 @@ export function adjustStars(db: AppDb, kidId: number, delta: number): number {
   const d = Math.max(-total, delta);
   if (d !== 0) addStars(db, kidId, d, "parent");
   return total + d;
+}
+
+/** A mistake at Ultimate or a hint at Extreme: takes `percent` of the child's stars, rounded up. Returns the stars lost. */
+export function chargeStars(db: AppDb, kidId: number, reason: "mistake" | "hint", percent = 1): number {
+  const lost = starCost(starTotal(db, kidId), percent);
+  if (lost) addStars(db, kidId, -lost, reason);
+  return lost;
 }
 
 /** Records a finished puzzle and its stars in one step. Returns the stars earned. */

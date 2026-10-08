@@ -32,6 +32,8 @@
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-flip" viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-turn" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2.5 5 13.5h6.5l-1 8 8.5-11h-6.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 2.5c.6 3.6 6 6.4 6 11.5a6 6 0 0 1-12 0c0-2.6 1.2-4.6 3-6 0 2 .9 3.3 2.3 3.8C10.6 9 10.6 5.6 12 2.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z" fill="currentColor"/></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -133,6 +135,7 @@
           <div class="group">
             <span class="label">Level</span>
             <div class="level-row" id="levelRow"></div>
+            <p class="level-note" id="levelNote"></p>
           </div>
           <div class="start-row">
             <button class="btn btn-primary" type="button" id="startBtn"><svg><use href="#i-play"/></svg>Start</button>
@@ -150,10 +153,13 @@
             <svg><use href="#i-close"/></svg>
             <svg class="ring" viewBox="0 0 76 76" aria-hidden="true"><circle cx="38" cy="38" r="36"/></svg>
           </button>
-          <span class="hold-hint">Hold to leave</span>
+          <div class="stars small" id="playStars"><svg><use href="#i-star"/></svg><span data-stars>0</span></div>
         </div>
         <div class="progress"><svg style="color: var(--primary)"><use href="#i-puzzle"/></svg><span id="progress">0 / 4</span></div>
-        <button class="round-btn soft-star" type="button" id="hintBtn" aria-label="Hint" style="color: #C98E22"><svg><use href="#i-hint"/></svg></button>
+        <div class="hint-wrap" id="hintWrap">
+          <span class="hint-left" id="hintLeft" hidden></span>
+          <button class="round-btn soft-star" type="button" id="hintBtn" aria-label="Hint" style="color: #C98E22"><svg><use href="#i-hint"/></svg></button>
+        </div>
       </div>
       <div class="toast" id="toast" role="status" hidden></div>
       <div class="playfield" id="playfield"></div>

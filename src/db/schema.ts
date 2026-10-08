@@ -52,6 +52,21 @@ export const MIGRATIONS: string[][] = [
     `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
     `CREATE INDEX star_entries_kid ON star_entries(kid_id)`,
     `CREATE INDEX redemptions_kid ON redemptions(kid_id)`
+  ],
+  // v2: stars lost for a mistake at Ultimate or a hint at Extreme. SQLite cannot change a CHECK, so the table is rebuilt.
+  [
+    `CREATE TABLE star_entries_v2 (
+      id INTEGER PRIMARY KEY,
+      kid_id INTEGER NOT NULL REFERENCES kids(id) ON DELETE CASCADE,
+      delta INTEGER NOT NULL,
+      reason TEXT NOT NULL CHECK (reason IN ('puzzle', 'redeem', 'parent', 'mistake', 'hint')),
+      ref_id INTEGER,
+      created_at TEXT NOT NULL)`,
+    `INSERT INTO star_entries_v2 (id, kid_id, delta, reason, ref_id, created_at)
+      SELECT id, kid_id, delta, reason, ref_id, created_at FROM star_entries`,
+    `DROP TABLE star_entries`,
+    `ALTER TABLE star_entries_v2 RENAME TO star_entries`,
+    `CREATE INDEX star_entries_kid ON star_entries(kid_id)`
   ]
 ];
 

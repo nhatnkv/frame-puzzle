@@ -1,18 +1,25 @@
 // The puzzle screen: a wooden frame with every slot's outline drawn on a gray board, and the
 // pieces waiting around it. The child drags pieces in and out; see src/puzzle/board.ts for the rules.
-// At medium and hard, pieces may start flipped or turned and a tap puts them round (src/puzzle/levels.ts).
+// At medium and up, pieces may start flipped or turned and a tap puts them round (src/puzzle/levels.ts).
+// At Extreme and Ultimate, a piece in the wrong slot or the wrong way round sends every piece in
+// the frame back out; at Ultimate it also costs stars, shown beside the close button.
 
-import { cellAt, deal, dealOrder, drop, isCorrect, isFull, isSolved, lift, piecesOnBoard, type BoardState, type Loc } from "../puzzle/board";
+import { currentKid, getApp, renderStars } from "../app";
+import { chargeStars } from "../data/stars";
+import { cellAt, deal, dealOrder, drop, isCorrect, isFull, isSolved, lift, piecesOnBoard, scatter, type BoardState, type Loc } from "../puzzle/board";
 import { cropRect, makeEdges, outlinePath, pieceOutline, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
 import { FRAME_BORDER, layoutWithReference, pieceMargin, REF_PAD, type Layout, type Rect } from "../puzzle/layout";
-import { DEFAULT_LEVEL, dealPoses, facesRight, poseExtent, poseStyle, rightPose, unturn, type Level } from "../puzzle/levels";
-import { byId, h } from "../ui/dom";
+import { costsStars, DEFAULT_LEVEL, dealPoses, facesRight, hintCostsStars, hintLimit, hintPercent, poseExtent, poseStyle, rightPose, scattersOnMistake, turns, unturn, type Level } from "../puzzle/levels";
+import { byId, h, icon } from "../ui/dom";
+import { HEAT } from "../ui/heat";
 import { current, go, onEnter } from "../ui/nav";
-import { flipSound, returnSound, snapSound, unlockAudio } from "../ui/sound";
-import { canvasScale, stageSize, toStage } from "../ui/stage";
+import { flipSound, returnSound, scatterSound, snapSound, unlockAudio } from "../ui/sound";
+import { canvasScale, stageScale, stageSize, toStage } from "../ui/stage";
 
 const TOP_BAR = 104;
 const HINT_MS = 2500;
+/** At Extreme and Ultimate, how long a wrong piece shows in its slot before every piece jumps out. */
+const SCATTER_MS = 400;
 /** A touch that moves less than this (stage units) and lets go within TAP_MS is a tap, not a drag. */
 const TAP_SLOP = 10;
 const TAP_MS = 500;
@@ -65,6 +72,10 @@ interface Game {
   pieces: Piece[];
   z: number;
   hint: number | null;
+  /** Hints used in this puzzle: at Hard only 5 are allowed, at Extreme each one costs more. */
+  hintsUsed: number;
+  /** While pieces jump out after a mistake; nothing can be picked up until they land. */
+  busy: boolean;
   finished: boolean;
   /** Playfield size the layout was made for. */
   W: number;
@@ -102,7 +113,7 @@ export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageEl
   const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) | 0;
   go("play");
   const { W, H } = fieldSize();
-  const { layout: L, ref } = layoutWithReference(rows, cols, W, H, REFERENCE, pieceAspect, level === "hard");
+  const { layout: L, ref } = layoutWithReference(rows, cols, W, H, REFERENCE, pieceAspect, turns(level));
   const order = dealOrder(L.cells.length, rows * cols, rng(seed + 1));
   game = {
     photoId,
@@ -125,6 +136,8 @@ export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageEl
     pieces: [],
     z: 100,
     hint: null,
+    hintsUsed: 0,
+    busy: false,
     finished: false,
     W,
     H
@@ -169,7 +182,8 @@ function build(g: Game): void {
   refCtx.drawImage(g.art, 0, 0, refArt.width, refArt.height);
   const refStyle = `left: ${rx}px; top: ${ry}px; width: ${rw}px; height: ${rh}px`;
   pf.append(h("div", { class: "ref-card", role: "button", "aria-label": "Show the picture big", style: refStyle }, refArt));
-  byId("hintBtn").style.marginRight = `${rw + 16}px`;
+  byId("hintWrap").style.marginRight = `${rw + 16}px`;
+  renderHint(g);
 
   g.slots.className = "slots";
   g.slots.width = Math.round(bw * dpr);
@@ -262,7 +276,7 @@ function showPose(g: Game, p: Piece): void {
   p.el.style.rotate = rotate;
 }
 
-/** A tap flips the piece (medium) or turns it a quarter turn clockwise (hard). */
+/** A tap flips the piece (medium) or turns it a quarter turn clockwise (hard and up). */
 function turnPiece(g: Game, p: Piece): void {
   g.poses[p.index]++;
   showPose(g, p);
@@ -276,6 +290,7 @@ function pieceDone(g: Game, i: number): boolean {
 
 function setPos(p: Piece, glide = false): void {
   p.el.classList.toggle("glide", glide);
+  p.el.classList.remove("scatter");
   p.el.style.left = `${p.x}px`;
   p.el.style.top = `${p.y}px`;
 }
@@ -301,7 +316,7 @@ function hitPiece(g: Game, x: number, y: number): Piece | null {
 
 function onDown(e: PointerEvent): void {
   const g = game;
-  if (!g || g.finished || drag) return;
+  if (!g || g.finished || g.busy || drag) return;
   unlockAudio();
   const pt = toStage(field(), e.clientX, e.clientY);
   const p = hitPiece(g, pt.x, pt.y);
@@ -361,10 +376,44 @@ function onUp(e: PointerEvent): void {
   const cell = cellAt(g.rows, g.cols, g.L.pw, g.L.ph, g.L.bx, g.L.by, cx, cy);
   const moves = drop(g.st, p.index, from, { cell, x: cx, y: cy }, g.L.cells);
   for (const mv of moves) moveTo(g, g.pieces[mv.piece], mv.to, true);
-  if (tap && g.level !== "easy") turnPiece(g, p);
+  // At Extreme and Ultimate every piece in the frame is already right, so a tap there turns nothing.
+  const strict = scattersOnMistake(g.level);
+  if (tap && g.level !== "easy" && !(strict && cell !== null)) turnPiece(g, p);
   else if (cell === null) returnSound();
+  else if (strict && !pieceDone(g, p.index)) return mistake(g);
   else snapSound();
   afterChange(g);
+}
+
+/**
+ * Extreme and Ultimate: a piece went into a slot that is not its own, or the wrong way round. It
+ * shows there for a moment, then every piece in the frame jumps back out to the sides. At Ultimate
+ * the stars it cost drop off the counter at once.
+ */
+function mistake(g: Game): void {
+  g.busy = true;
+  updateProgress(g);
+  if (costsStars(g.level)) {
+    const { db } = getApp();
+    const lost = chargeStars(db, currentKid().id, "mistake");
+    void db.flush();
+    if (lost) loseStars(lost);
+  }
+  setTimeout(() => {
+    if (game !== g) return;
+    g.busy = false;
+    for (const mv of scatter(g.st, Math.random)) {
+      const q = g.pieces[mv.piece];
+      moveTo(g, q, mv.to, true);
+      q.el.classList.add("scatter");
+    }
+    scatterSound();
+    if (g.hint !== null) {
+      g.hint = null;
+      drawSlots(g);
+    }
+    updateProgress(g);
+  }, SCATTER_MS);
 }
 
 /** Clears a hint that is no longer needed, and finishes or nudges once the frame is full. */
@@ -377,7 +426,7 @@ function afterChange(g: Game): void {
   if (!isFull(g.st)) return;
   if (!isSolved(g.st)) toast("Some pieces are in the wrong spot. Try swapping them!");
   else if (g.pieces.every((p) => facesRight(g.level, g.poses[p.index]))) finish(g);
-  else if (g.level === "hard") toast("Some pieces are turned the wrong way. Tap them to turn them round!");
+  else if (turns(g.level)) toast("Some pieces are turned the wrong way. Tap them to turn them round!");
   else toast("Some pieces are flipped. Tap them to flip them back!");
 }
 
@@ -390,9 +439,17 @@ function finish(g: Game): void {
 /** Lights up the right slot for one piece that is not done yet, wiggles it and puts it the right way round. */
 function showHint(): void {
   const g = game;
-  if (!g || g.finished) return;
+  if (!g || g.finished || g.busy || g.hintsUsed >= hintLimit(g.level)) return;
   const wrong = g.pieces.filter((p) => !pieceDone(g, p.index) && p !== drag?.piece);
   if (!wrong.length) return;
+  if (hintCostsStars(g.level)) {
+    const { db } = getApp();
+    const lost = chargeStars(db, currentKid().id, "hint", hintPercent(g.hintsUsed));
+    void db.flush();
+    if (lost) loseStars(lost);
+  }
+  g.hintsUsed++;
+  renderHint(g);
   const p = wrong[Math.floor(Math.random() * wrong.length)];
   g.hint = p.index;
   drawSlots(g);
@@ -413,6 +470,33 @@ function showHint(): void {
       drawSlots(g);
     }
   }, HINT_MS);
+}
+
+/**
+ * The light bulb and what is beside it: at Hard, the hints left; at Extreme, what the next hint
+ * costs. Both warm from green to red as hints run out or get dearer. Ultimate has no light bulb.
+ */
+function renderHint(g: Game): void {
+  const limit = hintLimit(g.level);
+  const left = limit - g.hintsUsed;
+  byId("hintWrap").hidden = limit === 0;
+  const btn = byId<HTMLButtonElement>("hintBtn");
+  btn.disabled = left <= 0;
+  const label = byId("hintLeft");
+  label.hidden = !Number.isFinite(limit) && !hintCostsStars(g.level);
+  const heat = HEAT[Math.min(HEAT.length - 1, g.hintsUsed)];
+  if (Number.isFinite(limit)) {
+    label.textContent = `${left} left`;
+    label.style.color = left > 0 ? heat : "var(--muted)";
+    btn.setAttribute("aria-label", `Hint, ${left} left`);
+  } else if (hintCostsStars(g.level)) {
+    const pct = hintPercent(g.hintsUsed);
+    label.textContent = `-${pct}%`;
+    label.style.color = heat;
+    btn.setAttribute("aria-label", `Hint, costs ${pct}% of your stars`);
+  } else {
+    btn.setAttribute("aria-label", "Hint");
+  }
 }
 
 /** After a rotation or resize: lay out again, keeping placed pieces where they are. */
@@ -438,7 +522,7 @@ function relayout(): void {
   }
   g.W = W;
   g.H = H;
-  const { layout: L, ref } = layoutWithReference(g.rows, g.cols, W, H, REFERENCE, g.pieceAspect, g.level === "hard");
+  const { layout: L, ref } = layoutWithReference(g.rows, g.cols, W, H, REFERENCE, g.pieceAspect, turns(g.level));
   const n = g.rows * g.cols;
   const st: BoardState = { rows: g.rows, cols: g.cols, loc: Array(n).fill(null), tray: Array(L.cells.length).fill(null), board: Array(n).fill(null) };
   // Loose pieces are dealt out again in a random order, so they never line up in picture order.
@@ -531,6 +615,25 @@ function closeZoom(animate: boolean): void {
 function fromRef(g: Game, x: number, y: number, w: number): string {
   const k = g.ref.w / w;
   return `translate(${g.ref.x - x}px, ${g.ref.y + TOP_BAR - y}px) scale(${k})`;
+}
+
+/** Ultimate: the counter beside the close button drops, flashes red, and "-N" falls away from it. */
+function loseStars(lost: number): void {
+  renderStars();
+  const pill = byId("playStars");
+  pill.classList.remove("lose");
+  void pill.offsetWidth;
+  pill.classList.add("lose");
+  if (reduceMotion()) return;
+  const sec = byId("s-play");
+  const r = pill.getBoundingClientRect();
+  const sr = sec.getBoundingClientRect();
+  const k = stageScale();
+  const drop = h("div", { class: "lose-stars", "aria-hidden": "true" }, `-${lost}`, icon("star"));
+  drop.style.left = `${(r.left - sr.left) / k + r.width / k / 2}px`;
+  drop.style.top = `${(r.bottom - sr.top) / k}px`;
+  sec.append(drop);
+  drop.addEventListener("animationend", () => drop.remove());
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null;

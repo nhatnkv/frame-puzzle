@@ -8,7 +8,7 @@ import { MIGRATIONS } from "../src/db/schema";
 import { referencedFiles } from "../src/data/files";
 import { addKid, cleanName, countKids, deleteKid, getKid, initial, listKids, updateKid } from "../src/data/kids";
 import { addPhoto, deletePhoto, isBuiltin, listPhotos, syncBuiltins, touchPhoto } from "../src/data/photos";
-import { adjustStars, recordPuzzle, starTotal } from "../src/data/stars";
+import { adjustStars, chargeStars, recordPuzzle, starTotal } from "../src/data/stars";
 import { getSetting, setSetting } from "../src/data/settings";
 
 let SQL: SqlJsStatic;
@@ -46,6 +46,25 @@ describe("database", () => {
     deleteKid(db, id);
     expect(db.value<number>("SELECT COUNT(*) FROM star_entries")).toBe(0);
     expect(db.value<number>("SELECT COUNT(*) FROM puzzles")).toBe(0);
+  });
+
+  it("keeps every star when it updates a database saved by the first version", async () => {
+    const old = new SQL.Database();
+    for (const stmt of MIGRATIONS[0]) old.run(stmt);
+    old.run("PRAGMA user_version = 1");
+    old.run("INSERT INTO kids (id, name, created_at) VALUES (1, 'Bin', 'x')");
+    old.run("INSERT INTO star_entries (kid_id, delta, reason, created_at) VALUES (1, 30, 'puzzle', 'x'), (1, -5, 'parent', 'x')");
+    const kv = memoryKV();
+    await kv.put("sqlite", old.export());
+    const db = await openDb(kv);
+    expect(db.version).toBe(MIGRATIONS.length);
+    expect(starTotal(db, 1)).toBe(25);
+    expect(chargeStars(db, 1, "mistake")).toBe(1);
+    expect(chargeStars(db, 1, "hint")).toBe(1);
+    expect(starTotal(db, 1)).toBe(23);
+    // Still removed with the child.
+    deleteKid(db, 1);
+    expect(db.value<number>("SELECT COUNT(*) FROM star_entries")).toBe(0);
   });
 
   it("starts fresh if the saved file is damaged", async () => {
@@ -98,6 +117,17 @@ describe("stars", () => {
     expect(adjustStars(db, id, 10)).toBe(10);
     expect(adjustStars(db, id, -25)).toBe(0);
     expect(starTotal(db, id)).toBe(0);
+  });
+
+  it("takes 1% of the stars, rounded up, for a mistake or a hint, and nothing from a child with none", async () => {
+    const db = await openDb();
+    const id = addKid(db, "Bin", 0, null);
+    expect(chargeStars(db, id, "mistake")).toBe(0);
+    adjustStars(db, id, 250);
+    expect(chargeStars(db, id, "mistake")).toBe(3);
+    expect(starTotal(db, id)).toBe(247);
+    expect(chargeStars(db, id, "hint")).toBe(3);
+    expect(starTotal(db, id)).toBe(244);
   });
 });
 

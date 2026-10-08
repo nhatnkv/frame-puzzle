@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellAt, deal, dealOrder, drop, isFull, isSolved, lift, piecesOnBoard, shuffledCells } from "../src/puzzle/board";
+import { cellAt, deal, dealOrder, drop, isFull, isSolved, lift, piecesOnBoard, scatter, shuffledCells } from "../src/puzzle/board";
 import { rng } from "../src/puzzle/geometry";
 import type { Cell } from "../src/puzzle/layout";
 
@@ -80,6 +80,33 @@ describe("board rules", () => {
       expect(new Set([...inTray, ...onBoard]).size).toBe(9);
       expect(inTray.length + onBoard.length).toBe(9);
     }
+  });
+});
+
+describe("scatter", () => {
+  it("sends every piece in the frame back out to free waiting cells, leaving loose pieces where they are", () => {
+    for (let seed = 1; seed < 20; seed++) {
+      const st = fresh();
+      drop(st, 0, lift(st, 0), at(0), cells);
+      drop(st, 1, lift(st, 1), at(1), cells);
+      drop(st, 2, lift(st, 2), at(3), cells);
+      const loose = st.loc[3];
+      const moves = scatter(st, rng(seed));
+      expect(moves.map((m) => m.piece).sort()).toEqual([0, 1, 2]);
+      expect(piecesOnBoard(st)).toBe(0);
+      expect(st.loc[3]).toEqual(loose);
+      expect(st.loc.every((l) => l?.kind === "tray")).toBe(true);
+      // One piece per waiting cell, and the tray agrees with each piece's place.
+      const used = st.loc.map((l) => (l?.kind === "tray" ? l.index : -1));
+      expect(new Set(used).size).toBe(4);
+      used.forEach((i, piece) => expect(st.tray[i]).toBe(piece));
+    }
+  });
+
+  it("does nothing when the frame is empty", () => {
+    const st = fresh();
+    expect(scatter(st, rng(1))).toEqual([]);
+    expect(st.tray).toEqual([0, 1, null, 2, 3, null]);
   });
 });
 

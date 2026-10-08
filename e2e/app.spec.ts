@@ -15,7 +15,7 @@ interface FrameState {
   ch: number;
   cells: Array<[number, number]>;
   loc: Array<{ kind: "tray" | "board"; index?: number; cell?: number }>;
-  level: "easy" | "medium" | "hard";
+  level: "easy" | "medium" | "hard" | "extreme" | "ultimate";
   /** How each piece faces: taps since it was the right way round. */
   poses: number[];
   pieces: Array<{ x: number; y: number }>;
@@ -38,7 +38,7 @@ async function pickKid(page: Page, name: string) {
   await expect(page.locator("#s-home")).toBeVisible();
 }
 
-async function startPuzzle(page: Page, pieces: number, level?: "Easy" | "Medium" | "Hard") {
+async function startPuzzle(page: Page, pieces: number, level?: "Easy" | "Medium" | "Hard" | "Extreme" | "Ultimate") {
   await page.click(".home-card[data-go=choose]");
   await page.locator(".count-btn", { hasText: new RegExp(`^${pieces}$`) }).click();
   if (level) await page.locator(".level-btn", { hasText: level }).click();
@@ -213,6 +213,120 @@ test("at hard, each tap turns a piece a quarter turn clockwise, beside the frame
   await tapPiece(page, late, turnsLeft(s.poses[late] + 1));
   await expect(page.locator("#s-done")).toBeVisible();
   await expect(page.locator("#earned")).toHaveText("+40");
+});
+
+test("at extreme, a piece in the wrong slot or the wrong way round sends every piece in the frame back out", async ({ page }) => {
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await page.click(".home-card[data-go=choose]");
+  // Each level says what it does under the buttons.
+  await page.locator(".level-btn", { hasText: "Extreme" }).click();
+  await expect(page.locator("#levelNote")).toContainText("A mistake sends them all out");
+  await page.click("#s-choose [data-go=home]");
+  await startPuzzle(page, 4, "Extreme");
+  const s = await frame(page);
+  expect(s.level).toBe("extreme");
+  // Pieces turn as at Hard.
+  expect(s.poses.filter((p) => p % 4).length).toBeGreaterThanOrEqual(2);
+  const turnsLeft = (p: number) => (4 - (p % 4)) % 4;
+
+  // A piece turned the right way round stays in, and a tap in the frame no longer turns it.
+  await tapPiece(page, 0, turnsLeft(s.poses[0]));
+  await dragPiece(page, 0, 0);
+  await expect(page.locator("#progress")).toHaveText("1 / 4");
+  const before = (await frame(page)).poses[0];
+  await tapPiece(page, 0);
+  expect((await frame(page)).poses[0]).toBe(before);
+  await expect(page.locator("#progress")).toHaveText("1 / 4");
+
+  // A piece in its own slot but still turned shows for a moment, then every piece jumps out.
+  const turned = s.poses.findIndex((p, i) => i > 0 && p % 4);
+  await dragPiece(page, turned, turned);
+  await expect(page.locator("#progress")).toHaveText("0 / 4");
+  expect((await frame(page)).loc.every((l) => l.kind === "tray")).toBe(true);
+  await expect(page.locator("#toast")).toBeHidden();
+  await page.waitForTimeout(600);
+
+  // So does a piece the right way round in the wrong slot.
+  await dragPiece(page, 0, 0);
+  await expect(page.locator("#progress")).toHaveText("1 / 4");
+  const right = (await frame(page)).poses.findIndex((p, i) => i > 0 && p % 4 === 0);
+  if (right > 0) {
+    await dragPiece(page, right, right === 1 ? 2 : 1);
+    await expect(page.locator("#progress")).toHaveText("0 / 4");
+  }
+});
+
+test("at ultimate, a mistake also costs 1% of the child's stars, shown beside the close button", async ({ page }) => {
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await startPuzzle(page, 2);
+  await expect(page.locator("#playStars")).toHaveText("0");
+  await dragPiece(page, 0, 0);
+  await dragPiece(page, 1, 1);
+  await expect(page.locator("#earned")).toHaveText("+4");
+  await page.click("#s-done [data-go=home]");
+  await expect(page.locator("#s-home [data-stars]")).toHaveText("4");
+
+  await startPuzzle(page, 2, "Ultimate");
+  await expect(page.locator("#playStars")).toHaveText("4");
+  await dragPiece(page, 0, 1);
+  await expect(page.locator("#playStars")).toHaveText("3");
+  await expect(page.locator("#progress")).toHaveText("0 / 2");
+  await page.waitForTimeout(600);
+
+  const s = await frame(page);
+  for (let i = 0; i < 2; i++) {
+    await tapPiece(page, i, (4 - (s.poses[i] % 4)) % 4);
+    await dragPiece(page, i, i);
+  }
+  await expect(page.locator("#s-done")).toBeVisible();
+  await expect(page.locator("#earned")).toHaveText("+60");
+  await expect(page.locator("#s-done .topbar [data-stars]")).toHaveText("63", { timeout: 6000 });
+});
+
+test("hints run out after 5 at hard, cost more and more stars at extreme and are gone at ultimate", async ({ page }) => {
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await startPuzzle(page, 2);
+  await expect(page.locator("#hintLeft")).toBeHidden();
+  await dragPiece(page, 0, 0);
+  await dragPiece(page, 1, 1);
+  await page.click("#s-done [data-go=home]");
+  await expect(page.locator("#s-home [data-stars]")).toHaveText("4");
+  const leave = async () => {
+    await page.locator("#exitBtn").hover();
+    await page.mouse.down();
+    await page.waitForTimeout(2200);
+    await page.mouse.up();
+    await expect(page.locator("#s-home")).toBeVisible();
+  };
+
+  await startPuzzle(page, 4, "Extreme");
+  // 1%, 1%, 2%, 3%, ... of the stars, rounded up: 4 stars go down by one each time here.
+  for (const [pct, stars] of [["1", "3"], ["1", "2"], ["2", "1"], ["3", "0"]]) {
+    await expect(page.locator("#hintLeft")).toHaveText(`-${pct}%`);
+    await page.click("#hintBtn");
+    await expect(page.locator("#playStars")).toHaveText(stars);
+  }
+  await expect(page.locator("#hintLeft")).toHaveText("-5%");
+  await leave();
+
+  await startPuzzle(page, 4, "Ultimate");
+  await expect(page.locator("#hintBtn")).toBeHidden();
+  await leave();
+
+  await startPuzzle(page, 4, "Hard");
+  await expect(page.locator("#hintLeft")).toHaveText("5 left");
+  for (let left = 4; left >= 0; left--) {
+    await page.click("#hintBtn");
+    await expect(page.locator("#hintLeft")).toHaveText(`${left} left`);
+  }
+  await expect(page.locator("#hintBtn")).toBeDisabled();
+  await expect(page.locator("#playStars")).toHaveText("0");
 });
 
 test("loose pieces never overlap and a piece dropped outside the frame goes back to the side", async ({ page }) => {

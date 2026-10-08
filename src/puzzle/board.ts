@@ -122,6 +122,21 @@ export function drop(st: BoardState, piece: number, from: Loc | null, d: Drop, c
   return moves;
 }
 
+/**
+ * Extreme and Ultimate, after a piece went into the wrong slot: every piece in the frame goes
+ * back out, each to a random free waiting cell. Returns every piece that moved.
+ */
+export function scatter(st: BoardState, rand: () => number): Move[] {
+  const pieces = st.board.filter((p): p is number => p !== null);
+  for (const piece of pieces) lift(st, piece);
+  const free = shuffledCells(st.tray.length, rand).filter((i) => st.tray[i] === null);
+  return pieces.map((piece, k) => {
+    const to: Loc = { kind: "tray", index: free[k] };
+    place(st, piece, to);
+    return { piece, to };
+  });
+}
+
 /** Board cell under a point, or null when it is outside the frame (plus a forgiving margin). */
 export function cellAt(
   rows: number,

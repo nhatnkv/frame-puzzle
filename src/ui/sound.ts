@@ -56,6 +56,11 @@ export function returnSound(): void {
   tone(392, 0.1, 0, 0.06);
 }
 
+/** Extreme and Ultimate: every piece in the frame jumps back out to the sides. */
+export function scatterSound(): void {
+  [880, 740, 587, 494].forEach((f, i) => tone(f, 0.08, i * 0.05, 0.05));
+}
+
 /** The picture is complete. */
 export function doneSound(): void {
   [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.35, i * 0.12, 0.12));

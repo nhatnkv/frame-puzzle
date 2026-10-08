@@ -6,9 +6,10 @@ import { addPhoto, deletePhoto, getPhoto, isBuiltin, listPhotos, touchPhoto, typ
 import { builtinUrl, categoryOf, type Category } from "../pictures";
 import { getSetting, setSetting } from "../data/settings";
 import { starsFor } from "../data/stars";
-import { DEFAULT_LEVEL, isLevel, LEVELS, type Level } from "../puzzle/levels";
+import { DEFAULT_LEVEL, isLevel, LEVELS, scattersOnMistake, type Level } from "../puzzle/levels";
 import { cropRect, DEFAULT_COUNT, makeEdges, outlinePath, pieceOutline, pieceSize, PIECE_COUNTS, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
 import { byId, h, icon, twoTapDelete } from "../ui/dom";
+import { HEAT } from "../ui/heat";
 import { canvasToJpeg, downscale, loadImageFile, loadImageUrl, onFilePicked } from "../ui/images";
 import { current, onEnter } from "../ui/nav";
 import { canvasScale } from "../ui/stage";
@@ -54,10 +55,13 @@ const countKey = () => `count:${getApp().kid?.id ?? 0}`;
 const filterKey = () => `pictures:${getApp().kid?.id ?? 0}`;
 const levelKey = () => `level:${getApp().kid?.id ?? 0}`;
 
-const LEVEL_UI: Record<Level, { label: string; icon: string }> = {
-  easy: { label: "Easy", icon: "puzzle" },
-  medium: { label: "Medium", icon: "flip" },
-  hard: { label: "Hard", icon: "turn" }
+/** Each level's button, and the line under the buttons saying what it does, warming from green to red. */
+const LEVEL_UI: Record<Level, { label: string; icon: string; note: string }> = {
+  easy: { label: "Easy", icon: "puzzle", note: "Every piece faces the right way." },
+  medium: { label: "Medium", icon: "flip", note: "Some pieces are flipped. Tap one to flip it back." },
+  hard: { label: "Hard", icon: "turn", note: "Some pieces are turned. Tap one to turn it round. Only 5 hints!" },
+  extreme: { label: "Extreme", icon: "bolt", note: "Turn pieces right first. A mistake sends them all out. Hints cost more and more stars!" },
+  ultimate: { label: "Ultimate", icon: "flame", note: "Like Extreme, and each mistake costs 1% of your stars. No hints!" }
 };
 
 export function setupChoose(onStart: (photoId: number, count: PieceCount, img: HTMLImageElement, level: Level) => void): void {
@@ -203,7 +207,12 @@ function render(): void {
   byId("levelRow").replaceChildren(
     ...LEVELS.map((lv) => {
       const on = lv === level;
-      const b = h("button", { type: "button", class: `level-btn${on ? " on" : ""}`, "aria-pressed": on ? "true" : "false" }, icon(LEVEL_UI[lv].icon), LEVEL_UI[lv].label);
+      const b = h(
+        "button",
+        { type: "button", class: `level-btn${on ? " on" : ""}${scattersOnMistake(lv) ? " wild" : ""}`, "aria-pressed": on ? "true" : "false" },
+        icon(LEVEL_UI[lv].icon),
+        LEVEL_UI[lv].label
+      );
       b.addEventListener("click", () => {
         level = lv;
         render();
@@ -211,6 +220,9 @@ function render(): void {
       return b;
     })
   );
+  const note = byId("levelNote");
+  note.textContent = LEVEL_UI[level].note;
+  note.style.color = HEAT[LEVELS.indexOf(level)];
   byId("rewardPreview").textContent = `+${starsFor(count, level)}`;
 
   const cv = byId<HTMLCanvasElement>("preview");
