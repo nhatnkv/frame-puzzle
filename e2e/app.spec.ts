@@ -374,6 +374,22 @@ test("the frame takes the shape of a wide photo, so none of it is cut off", asyn
   expect(s.pw).toBeGreaterThan(s.ph);
 });
 
+test("pictures stay sharp when the screen is bigger than the design size", async ({ page }) => {
+  // A 13-inch iPad or a big browser window shows the whole stage scaled up.
+  await page.setViewportSize({ width: 1500, height: 1050 });
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  // Canvas pixels per screen pixel; below 1 the browser stretches the canvas and it looks blurry.
+  const sharpness = (sel: string) =>
+    page.locator(sel).first().evaluate((c: HTMLCanvasElement) => c.width / (c.getBoundingClientRect().width * devicePixelRatio));
+  await page.click(".home-card[data-go=choose]");
+  await expect.poll(() => sharpness("#preview")).toBeGreaterThan(0.98);
+  await page.click("#startBtn");
+  await expect(page.locator("#s-play")).toBeVisible();
+  for (const sel of [".piece", ".ref-card canvas", ".slots"]) expect(await sharpness(sel)).toBeGreaterThan(0.98);
+});
+
 test("works offline after the first visit", async ({ page, context, browserName }) => {
   test.skip(browserName !== "chromium", "Service worker control is checked in Chromium");
   await open(page);

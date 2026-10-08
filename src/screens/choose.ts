@@ -9,7 +9,8 @@ import { DEFAULT_LEVEL, isLevel, LEVELS, type Level } from "../puzzle/levels";
 import { cropRect, DEFAULT_COUNT, makeEdges, outlinePath, pieceOutline, pieceSize, PIECE_COUNTS, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
 import { byId, h, icon, twoTapDelete } from "../ui/dom";
 import { canvasToJpeg, downscale, loadImageFile, loadImageUrl, onFilePicked } from "../ui/images";
-import { onEnter } from "../ui/nav";
+import { current, onEnter } from "../ui/nav";
+import { canvasScale } from "../ui/stage";
 
 const PREVIEW = 440;
 const MAX_PHOTO = 1600;
@@ -74,6 +75,13 @@ export function setupChoose(onStart: (photoId: number, count: PieceCount, img: H
   };
   onFilePicked(byId<HTMLInputElement>("pickPhoto"), importFile);
   onFilePicked(byId<HTMLInputElement>("takePhoto"), importFile);
+
+  // Shown bigger or smaller (a rotation, a browser window resized): draw the preview again, sharp.
+  window.addEventListener("resize", () =>
+    requestAnimationFrame(() => {
+      if (current() === "choose" && loaded && loaded.id === photoId) drawPreview(byId<HTMLCanvasElement>("preview"), loaded.img);
+    })
+  );
 
   byId("startBtn").addEventListener("click", async () => {
     if (!photoId) return;
@@ -169,11 +177,12 @@ function render(): void {
 
 /** The whole picture in the puzzle's shape with the jigsaw cut drawn on top. */
 function drawPreview(cv: HTMLCanvasElement, img: HTMLImageElement): void {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  cv.width = cv.height = PREVIEW * dpr;
+  const dpr = canvasScale();
+  cv.width = cv.height = Math.round(PREVIEW * dpr);
   cv.style.width = cv.style.height = `${PREVIEW}px`;
   const x = cv.getContext("2d")!;
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.imageSmoothingQuality = "high";
   const { rows, cols, pieceAspect } = shapeFor(count, img.width / img.height);
   const size = Math.floor(Math.min(PREVIEW / cols / Math.min(1, pieceAspect), PREVIEW / rows / Math.min(1, 1 / pieceAspect)));
   const { pw, ph } = pieceSize(size, pieceAspect);

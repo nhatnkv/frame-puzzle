@@ -7,7 +7,7 @@ import { recordPuzzle, starTotal } from "../data/stars";
 import { byId } from "../ui/dom";
 import { current, go } from "../ui/nav";
 import { doneSound, tone } from "../ui/sound";
-import { stageScale } from "../ui/stage";
+import { canvasScale, stageScale } from "../ui/stage";
 import type { Solved } from "./play";
 
 const MAX = 460;
@@ -52,7 +52,7 @@ function sayWellDone(): void {
 
 function showDone(s: Solved, earned: number): void {
   const cv = byId<HTMLCanvasElement>("doneCanvas");
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = canvasScale();
   const k = Math.min(MAX / s.art.width, MAX / s.art.height);
   const w = Math.round(s.art.width * k);
   const h = Math.round(s.art.height * k);
@@ -60,7 +60,9 @@ function showDone(s: Solved, earned: number): void {
   cv.height = Math.round(h * dpr);
   cv.style.width = `${w}px`;
   cv.style.height = `${h}px`;
-  cv.getContext("2d")!.drawImage(s.art, 0, 0, cv.width, cv.height);
+  const x = cv.getContext("2d")!;
+  x.imageSmoothingQuality = "high";
+  x.drawImage(s.art, 0, 0, cv.width, cv.height);
   byId("earned").textContent = `+${earned}`;
   go("done");
   celebrate(earned);
@@ -86,7 +88,8 @@ function confetti(sec: HTMLElement): void {
   const cv = byId<HTMLCanvasElement>("confetti");
   const W = sec.offsetWidth;
   const H = sec.offsetHeight;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // Soft confetti is fine; keep this full-screen canvas light.
+  const dpr = canvasScale(2);
   cv.width = Math.round(W * dpr);
   cv.height = Math.round(H * dpr);
   const x = cv.getContext("2d")!;

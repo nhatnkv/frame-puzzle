@@ -9,7 +9,7 @@ import { DEFAULT_LEVEL, dealPoses, facesRight, poseExtent, poseStyle, rightPose,
 import { byId, h } from "../ui/dom";
 import { current, go, onEnter } from "../ui/nav";
 import { flipSound, returnSound, snapSound, unlockAudio } from "../ui/sound";
-import { stageSize, toStage } from "../ui/stage";
+import { canvasScale, stageSize, toStage } from "../ui/stage";
 
 const TOP_BAR = 104;
 const HINT_MS = 2500;
@@ -112,7 +112,7 @@ export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageEl
     m: 0,
     cw: 0,
     ch: 0,
-    dpr: Math.min(window.devicePixelRatio || 1, 2),
+    dpr: canvasScale(),
     art: document.createElement("canvas"),
     slots: document.createElement("canvas"),
     st: deal(rows, cols, L.cells.length, order),
@@ -141,7 +141,9 @@ function build(g: Game): void {
   g.art.width = Math.round(bw * dpr);
   g.art.height = Math.round(bh * dpr);
   const [sx, sy, sw, sh] = cropRect(g.img.width, g.img.height, bw / bh);
-  g.art.getContext("2d")!.drawImage(g.img, sx, sy, sw, sh, 0, 0, g.art.width, g.art.height);
+  const ax = g.art.getContext("2d")!;
+  ax.imageSmoothingQuality = "high";
+  ax.drawImage(g.img, sx, sy, sw, sh, 0, 0, g.art.width, g.art.height);
 
   pf.append(
     h("div", {
@@ -155,7 +157,9 @@ function build(g: Game): void {
   const refArt = h("canvas", { "aria-hidden": "true" });
   refArt.width = Math.round((rw - 2 * REF_PAD) * dpr);
   refArt.height = Math.round((rh - 2 * REF_PAD) * dpr);
-  refArt.getContext("2d")!.drawImage(g.art, 0, 0, refArt.width, refArt.height);
+  const refCtx = refArt.getContext("2d")!;
+  refCtx.imageSmoothingQuality = "high";
+  refCtx.drawImage(g.art, 0, 0, refArt.width, refArt.height);
   pf.append(h("div", { class: "ref-card", style: `left: ${rx}px; top: ${ry}px; width: ${rw}px; height: ${rh}px` }, refArt));
   byId("hintBtn").style.marginRight = `${rw + 16}px`;
 
@@ -401,9 +405,16 @@ function relayout(): void {
   const g = game;
   if (!g || current() !== "play") return;
   const { W, H } = fieldSize();
-  // iPad Safari sends resize events without a real size change (toolbars, safe area), even in the
-  // middle of a drag; keep everything as is, including the piece in the child's hand.
-  if (W === g.W && H === g.H) return;
+  const dpr = canvasScale();
+  if (W === g.W && H === g.H) {
+    // iPad Safari sends resize events without a real size change (toolbars, safe area), even in the
+    // middle of a drag; keep everything as is, including the piece in the child's hand.
+    if (dpr === g.dpr || drag) return;
+    // The same layout shown bigger or smaller: draw everything again at the new sharpness.
+    g.dpr = dpr;
+    build(g);
+    return;
+  }
   if (drag) {
     const p = drag.piece;
     drag = null;
@@ -432,6 +443,7 @@ function relayout(): void {
   g.L = L;
   g.ref = ref;
   g.st = st;
+  g.dpr = dpr;
   build(g);
 }
 

@@ -25,6 +25,15 @@ export function stageScale(): number {
   return current.scale;
 }
 
+/**
+ * Canvas pixels per stage unit. The stage is scaled with a CSS transform, so a canvas needs the
+ * screen's pixel ratio times the stage scale to stay sharp when the stage is shown bigger than its
+ * design size (a 13-inch iPad, a big browser window).
+ */
+export function canvasScale(max = 3): number {
+  return Math.min(max, (window.devicePixelRatio || 1) * current.scale);
+}
+
 export function stageSize(): { width: number; height: number } {
   return { width: current.width, height: current.height };
 }
