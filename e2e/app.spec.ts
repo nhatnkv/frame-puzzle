@@ -177,13 +177,13 @@ test("at medium, a flipped piece fits any slot, and the picture is done once tap
   // The light bulb puts the last flipped piece right, which finishes the picture.
   await page.click("#hintBtn");
   await expect(page.locator("#s-done")).toBeVisible();
-  await expect(page.locator("#earned")).toHaveText("+12");
+  await expect(page.locator("#earned")).toHaveText("+24");
 
   // The level is remembered for this child.
   await page.click("#s-done [data-go=home]");
   await page.click(".home-card[data-go=choose]");
   await expect(page.locator(".level-btn", { hasText: "Medium" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("#rewardPreview")).toHaveText("+12");
+  await expect(page.locator("#rewardPreview")).toHaveText("+24");
 });
 
 test("at hard, each tap turns a piece a quarter turn clockwise, beside the frame or in it", async ({ page }) => {
@@ -212,7 +212,7 @@ test("at hard, each tap turns a piece a quarter turn clockwise, beside the frame
   expect(await pieceStyle(page, late)).toMatchObject({ rotate: `${(s.poses[late] + 1) * 90}deg` });
   await tapPiece(page, late, turnsLeft(s.poses[late] + 1));
   await expect(page.locator("#s-done")).toBeVisible();
-  await expect(page.locator("#earned")).toHaveText("+16");
+  await expect(page.locator("#earned")).toHaveText("+40");
 });
 
 test("loose pieces never overlap and a piece dropped outside the frame goes back to the side", async ({ page }) => {

@@ -71,10 +71,10 @@ describe("levels", () => {
 
   it("gives more stars for harder levels", () => {
     expect(starsPerPiece("easy")).toBe(2);
-    expect(starsPerPiece("medium")).toBe(3);
-    expect(starsPerPiece("hard")).toBe(4);
+    expect(starsPerPiece("medium")).toBe(6);
+    expect(starsPerPiece("hard")).toBe(10);
     expect(starsFor(4)).toBe(8);
-    expect(starsFor(4, "medium")).toBe(12);
-    expect(starsFor(4, "hard")).toBe(16);
+    expect(starsFor(4, "medium")).toBe(24);
+    expect(starsFor(4, "hard")).toBe(40);
   });
 });

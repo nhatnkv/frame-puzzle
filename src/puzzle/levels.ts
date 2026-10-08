@@ -82,7 +82,7 @@ export function poseExtent(level: Level, pose: number, w: number, h: number): [n
   return level === "hard" && pose % 2 ? [h / 2, w / 2] : [w / 2, h / 2];
 }
 
-/** Stars per piece: harder levels earn more. */
+/** Stars per piece: Medium earns three times as many as Easy, Hard five times. */
 export function starsPerPiece(level: Level): number {
-  return level === "hard" ? 4 : level === "medium" ? 3 : 2;
+  return 2 * (level === "hard" ? 5 : level === "medium" ? 3 : 1);
 }
