@@ -78,12 +78,26 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .source-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .label { font-size: 19px; font-weight: 700; color: var(--muted); letter-spacing: 0.2px; }
 .group { display: flex; flex-direction: column; gap: 12px; }
-.library { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; max-height: 192px; overflow-y: auto; padding: 4px; margin: -4px; }
+/* One row that scrolls sideways, with the next picture peeking in so it is clear there are more. */
+.library { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 5 * 12px) / 6.4); gap: 12px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; padding: 4px; margin: -4px; }
+.library.is-empty { display: block; }
 .lib-item { position: relative; }
 .del-badge { position: absolute; top: -6px; right: -6px; width: 36px; height: 36px; border-radius: 18px; border: 2px solid var(--surface); background: var(--danger); color: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 0; box-shadow: 0 2px 6px rgba(61, 66, 74, 0.2); }
 .del-badge svg { width: 18px; height: 18px; }
 .del-badge.armed { width: auto; padding: 0 12px; font-size: 14px; font-weight: 800; gap: 4px; right: -10px; }
-.label-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; }
+.cat-btn { height: 50px; padding: 0 16px 0 14px; border-radius: 999px; border: 2px solid var(--line); background: var(--surface); display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; color: var(--ink); }
+.cat-btn svg { width: 26px; height: 26px; color: var(--primary); flex-shrink: 0; }
+.cat-btn svg.chev { width: 22px; height: 22px; color: var(--muted); transition: rotate 0.2s ease; }
+.cat-btn[aria-expanded="true"] { border-color: var(--primary); }
+.cat-btn[aria-expanded="true"] svg.chev { rotate: 180deg; }
+.cat-count { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+.cat-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; width: 340px; padding: 8px; border-radius: 24px; background: var(--surface); border: 2px solid var(--line); box-shadow: 0 14px 34px rgba(61, 66, 74, 0.18); display: flex; flex-direction: column; gap: 4px; box-sizing: border-box; }
+.cat-item { height: 60px; border: none; border-radius: 16px; background: none; display: flex; align-items: center; gap: 14px; padding: 0 14px; font-size: 21px; font-weight: 800; color: var(--ink); text-align: left; }
+.cat-item > svg { width: 28px; height: 28px; color: var(--primary); flex-shrink: 0; }
+.cat-item .cat-count { margin-left: auto; }
+.cat-item.on { background: var(--primary-soft); }
+.cat-tick { width: 22px; height: 22px; color: var(--primary); }
 .text-btn { border: none; background: none; padding: 6px 4px; font-size: 18px; font-weight: 800; color: var(--primary); }
 .thumb-btn { width: 100%; aspect-ratio: 1; max-width: 100%; border-radius: 18px; border: 3px solid transparent; padding: 0; overflow: hidden; background: var(--board); }
 .thumb-btn.on { border-color: var(--primary); }

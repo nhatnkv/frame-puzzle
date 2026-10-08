@@ -343,19 +343,68 @@ test("a parent imports a picture and deletes it with two taps; the app's own pic
   await pickKid(page, "Bin");
   await page.click(".home-card[data-go=choose]");
   const thumbs = page.locator("#library .thumb-btn");
-  await expect(thumbs).toHaveCount(5);
+  await expect(thumbs).toHaveCount(15);
   await expect(page.locator("#libEdit")).toBeHidden();
   await expect(thumbs.locator("img").first()).toHaveJSProperty("complete", true);
   expect(await thumbs.locator("img").first().evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(1536);
+  // A new photo shows with the family's own photos, chosen.
   await page.setInputFiles("#pickPhoto", await pictureFile(page, "beach.png", "#9EC3E3"));
-  await expect(thumbs).toHaveCount(6);
+  await expect(page.locator("#categoryBtn")).toHaveText(/My photos\s*\(1\)/);
+  await expect(thumbs).toHaveCount(1);
+  await expect(thumbs.first()).toHaveAttribute("aria-pressed", "true");
   await page.click("#libEdit");
   await expect(page.locator(".del-badge")).toHaveCount(1);
   await page.locator(".del-badge").click();
-  await expect(thumbs).toHaveCount(6);
+  await expect(thumbs).toHaveCount(1);
   await page.locator(".del-badge.armed").click();
-  await expect(thumbs).toHaveCount(5);
+  await expect(thumbs).toHaveCount(0);
+  await expect(page.locator("#library .empty")).toBeVisible();
   await expect(page.locator("#libEdit")).toBeHidden();
+  await expect(page.locator("#startBtn")).toBeDisabled();
+});
+
+test("pictures can be shown one category at a time, remembered for each child", async ({ page }) => {
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await page.click(".home-card[data-go=choose]");
+  const thumbs = page.locator("#library .thumb-btn");
+  const menu = page.locator("#categoryMenu");
+  await expect(page.locator("#categoryBtn")).toHaveText(/All pictures\s*\(15\)/);
+  await expect(menu).toBeHidden();
+  await page.click("#categoryBtn");
+  await expect(menu.locator(".cat-item")).toHaveText([/All pictures\s*15/, /Animals\s*2/, /Vehicles\s*3/, /Landscapes\s*10/, /My photos\s*0/]);
+  // A tap outside closes the menu without changing anything.
+  await page.mouse.click(40, 700);
+  await expect(menu).toBeHidden();
+  await page.click("#categoryBtn");
+  await menu.locator(".cat-item", { hasText: "Landscapes" }).click();
+  await expect(menu).toBeHidden();
+  await expect(page.locator("#categoryBtn")).toHaveText(/Landscapes\s*\(10\)/);
+  await expect(thumbs).toHaveCount(10);
+  // The row scrolls sideways; the last picture can be chosen and stays in view.
+  await thumbs.last().scrollIntoViewIfNeeded();
+  await thumbs.last().click();
+  await expect(thumbs.last()).toHaveAttribute("aria-pressed", "true");
+  await page.locator(".count-btn", { hasText: /^9$/ }).click();
+  const inView = await page.evaluate(() => {
+    const lib = document.getElementById("library")!.getBoundingClientRect();
+    const on = document.querySelector("#library .thumb-btn.on")!.getBoundingClientRect();
+    return on.left >= lib.left - 1 && on.right <= lib.right + 1;
+  });
+  expect(inView).toBe(true);
+  // Remembered when the child comes back.
+  await page.click("#s-choose [data-go=home]");
+  await page.click(".home-card[data-go=choose]");
+  await expect(page.locator("#categoryBtn")).toHaveText(/Landscapes\s*\(10\)/);
+  // Everything fits on the smallest iPad screen, Start included, with all the pictures.
+  await page.click("#categoryBtn");
+  await menu.locator(".cat-item", { hasText: "All pictures" }).click();
+  await expect(thumbs).toHaveCount(15);
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.waitForTimeout(200);
+  const start = await page.locator("#startBtn").boundingBox();
+  expect(start!.y + start!.height).toBeLessThanOrEqual(768);
 });
 
 test("the frame takes the shape of a wide photo, so none of it is cut off", async ({ page }) => {
@@ -364,7 +413,7 @@ test("the frame takes the shape of a wide photo, so none of it is cut off", asyn
   await pickKid(page, "Bin");
   await page.click(".home-card[data-go=choose]");
   await page.setInputFiles("#pickPhoto", await pictureFile(page, "beach.png", "#9EC3E3")); // 800x600
-  await expect(page.locator("#library .thumb-btn")).toHaveCount(6);
+  await expect(page.locator("#library .thumb-btn")).toHaveCount(1);
   await page.locator(".count-btn", { hasText: /^4$/ }).click();
   await page.click("#startBtn");
   await expect(page.locator("#progress")).toHaveText("0 / 4");

@@ -1,8 +1,9 @@
-// Choose a picture (import, reuse or delete), how many pieces and the level, with a preview of the cut.
+// Choose a picture (import, reuse or delete, one category at a time), how many pieces and the level,
+// with a preview of the cut.
 
 import { getApp } from "../app";
 import { addPhoto, deletePhoto, getPhoto, isBuiltin, listPhotos, touchPhoto, type Photo } from "../data/photos";
-import { builtinUrl } from "../pictures";
+import { builtinUrl, categoryOf, type Category } from "../pictures";
 import { getSetting, setSetting } from "../data/settings";
 import { starsFor } from "../data/stars";
 import { DEFAULT_LEVEL, isLevel, LEVELS, type Level } from "../puzzle/levels";
@@ -18,6 +19,8 @@ const MAX_PHOTO = 1600;
 let photoId: number | null = null;
 let count: PieceCount = DEFAULT_COUNT;
 let level: Level = DEFAULT_LEVEL;
+let filter: Filter = "all";
+let menuOpen = false;
 let editing = false;
 let loaded: { id: number; img: HTMLImageElement } | null = null;
 const previewEdges = new Map<string, Edges>();
@@ -37,7 +40,18 @@ export async function photoImage(id: number): Promise<HTMLImageElement> {
   return img;
 }
 
+type Filter = "all" | Category;
+const FILTERS: Array<{ id: Filter; label: string; icon: string }> = [
+  { id: "all", label: "All pictures", icon: "grid" },
+  { id: "animals", label: "Animals", icon: "paw" },
+  { id: "vehicles", label: "Vehicles", icon: "car" },
+  { id: "landscapes", label: "Landscapes", icon: "mountain" },
+  { id: "mine", label: "My photos", icon: "photo" }
+];
+const isFilter = (v: string): v is Filter => FILTERS.some((f) => f.id === v);
+
 const countKey = () => `count:${getApp().kid?.id ?? 0}`;
+const filterKey = () => `pictures:${getApp().kid?.id ?? 0}`;
 const levelKey = () => `level:${getApp().kid?.id ?? 0}`;
 
 const LEVEL_UI: Record<Level, { label: string; icon: string }> = {
@@ -53,11 +67,27 @@ export function setupChoose(onStart: (photoId: number, count: PieceCount, img: H
     count = (PIECE_COUNTS as readonly number[]).includes(saved) ? (saved as PieceCount) : DEFAULT_COUNT;
     const savedLevel = getSetting(getApp().db, levelKey(), DEFAULT_LEVEL);
     level = isLevel(savedLevel) ? savedLevel : DEFAULT_LEVEL;
+    const savedFilter = getSetting(getApp().db, filterKey(), "all");
+    filter = isFilter(savedFilter) ? savedFilter : "all";
+    menuOpen = false;
     render();
   });
 
   byId("libEdit").addEventListener("click", () => {
     editing = !editing;
+    menuOpen = false;
+    render();
+  });
+
+  byId("categoryBtn").addEventListener("click", () => {
+    menuOpen = !menuOpen;
+    render();
+  });
+  // A tap anywhere else closes the category menu.
+  document.addEventListener("pointerdown", (e) => {
+    if (!menuOpen || !(e.target instanceof Node)) return;
+    if (byId("categoryMenu").contains(e.target) || byId("categoryBtn").contains(e.target)) return;
+    menuOpen = false;
     render();
   });
 
@@ -68,6 +98,8 @@ export function setupChoose(onStart: (photoId: number, count: PieceCount, img: H
       const key = await a.files.put(await canvasToJpeg(c, 0.85));
       photoId = addPhoto(a.db, key, c.width, c.height);
       editing = false;
+      // Show the new photo with the family's other photos.
+      setFilter("mine");
       render();
     } catch (e) {
       console.error(e);
@@ -93,22 +125,32 @@ export function setupChoose(onStart: (photoId: number, count: PieceCount, img: H
   });
 }
 
+function setFilter(f: Filter): void {
+  filter = f;
+  menuOpen = false;
+  setSetting(getApp().db, filterKey(), f);
+}
+
 function render(): void {
   const { db, files } = getApp();
-  const photos = listPhotos(db);
+  const all = listPhotos(db);
+  const inFilter = (f: Filter) => all.filter((p) => f === "all" || categoryOf(p) === f);
+  const photos = inFilter(filter);
   if (!photos.some((p) => p.id === photoId)) photoId = photos[0]?.id ?? null;
   const deletable = photos.some((p) => !isBuiltin(p));
   if (!deletable) editing = false;
 
-  byId("libraryLabel").textContent = `Your pictures (${photos.length})`;
+  renderCategories(inFilter);
   const edit = byId("libEdit");
   edit.hidden = !deletable;
   edit.textContent = editing ? "Done" : "Delete";
 
   const lib = byId("library");
+  const scroll = lib.scrollLeft;
   lib.replaceChildren();
+  lib.classList.toggle("is-empty", !photos.length);
   if (!photos.length) {
-    lib.append(h("span", { class: "empty", style: "grid-column: 1 / -1" }, 'No pictures yet. Tap "Photo library" or "Take photo" to add one.'));
+    lib.append(h("span", { class: "empty" }, 'No pictures yet. Tap "Photo library" or "Take photo" to add one.'));
   }
   for (const p of photos) {
     const on = p.id === photoId;
@@ -136,6 +178,13 @@ function render(): void {
       );
     }
     lib.append(item);
+  }
+  // Rebuilding the row keeps where it was scrolled to, and the chosen picture stays in view.
+  lib.scrollLeft = scroll;
+  const sel = lib.querySelector(".thumb-btn.on")?.parentElement;
+  if (sel) {
+    if (sel.offsetLeft < lib.scrollLeft) lib.scrollLeft = sel.offsetLeft - 4;
+    else if (sel.offsetLeft + sel.offsetWidth > lib.scrollLeft + lib.clientWidth) lib.scrollLeft = sel.offsetLeft + sel.offsetWidth + 4 - lib.clientWidth;
   }
 
   byId<HTMLButtonElement>("startBtn").disabled = !photoId;
@@ -173,6 +222,46 @@ function render(): void {
   void photoImage(id).then((img) => {
     if (photoId === id) drawPreview(cv, img);
   });
+}
+
+/** The category button ("Landscapes (10)") and, when open, the menu of every category. */
+function renderCategories(inFilter: (f: Filter) => Photo[]): void {
+  const cur = FILTERS.find((f) => f.id === filter)!;
+  const btn = byId("categoryBtn");
+  btn.setAttribute("aria-expanded", menuOpen ? "true" : "false");
+  const chev = icon("chevron");
+  chev.classList.add("chev");
+  btn.replaceChildren(icon(cur.icon), cur.label, h("span", { class: "cat-count" }, `(${inFilter(filter).length})`), chev);
+
+  const menu = byId("categoryMenu");
+  menu.hidden = !menuOpen;
+  if (!menuOpen) return;
+  menu.replaceChildren(
+    ...FILTERS.map((f) => {
+      const on = f.id === filter;
+      const item = h(
+        "button",
+        { type: "button", class: `cat-item${on ? " on" : ""}`, "aria-pressed": on ? "true" : "false" },
+        icon(f.icon),
+        f.label,
+        h("span", { class: "cat-count" }, String(inFilter(f.id).length))
+      );
+      if (on) {
+        const tick = icon("check");
+        tick.classList.add("cat-tick");
+        item.append(tick);
+      }
+      item.addEventListener("click", () => {
+        if (f.id !== filter) {
+          editing = false;
+          byId("library").scrollLeft = 0;
+        }
+        setFilter(f.id);
+        render();
+      });
+      return item;
+    })
+  );
 }
 
 /** The whole picture in the puzzle's shape with the jigsaw cut drawn on top. */
