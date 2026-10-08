@@ -445,6 +445,33 @@ test("pictures stay sharp when the screen is bigger than the design size", async
   for (const sel of [".piece", ".ref-card canvas", ".slots"]) expect(await sharpness(sel)).toBeGreaterThan(0.98);
 });
 
+test("tapping the small picture shows it big in the middle, and a tap shrinks it back", async ({ page }) => {
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await startPuzzle(page, 4);
+  const small = (await page.locator(".ref-card").boundingBox())!;
+  await page.locator(".ref-card").click();
+  const big = page.locator(".zoom-card");
+  await expect(big).toBeVisible();
+  expect((await frame(page)) as unknown as { zoomed: boolean }).toMatchObject({ zoomed: true });
+  // Once it has grown: many times the small one, in the middle of the screen.
+  await page.waitForTimeout(400);
+  const box = (await big.boundingBox())!;
+  const stage = (await page.locator("#stage").boundingBox())!;
+  expect(box.width).toBeGreaterThan(small.width * 3);
+  expect(Math.abs(box.x + box.width / 2 - (stage.x + stage.width / 2))).toBeLessThan(3);
+  expect(Math.abs(box.y + box.height / 2 - (stage.y + stage.height / 2))).toBeLessThan(3);
+  await expect(page.locator(".ref-card")).toBeHidden();
+
+  // A tap on it puts it back, and the pieces can be moved again.
+  await big.click();
+  await expect(page.locator(".zoom")).toHaveCount(0);
+  await expect(page.locator(".ref-card")).toBeVisible();
+  await dragPiece(page, 0, 0);
+  await expect(page.locator("#progress")).toHaveText("1 / 4");
+});
+
 test("works offline after the first visit", async ({ page, context, browserName }) => {
   test.skip(browserName !== "chromium", "Service worker control is checked in Chromium");
   await open(page);

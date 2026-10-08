@@ -18,6 +18,10 @@ const TAP_SLOP = 10;
 const TAP_MS = 500;
 /** The whole picture in the top-right corner, for the child to look at while building it. */
 const REFERENCE = { top: 16 - TOP_BAR, right: 36, max: 180 };
+/** The reference picture shown big: room left around it, its white border, and how long it takes to grow. */
+const ZOOM_MARGIN = 56;
+const ZOOM_PAD = 12;
+const ZOOM_MS = 280;
 
 export interface Solved {
   photoId: number;
@@ -82,6 +86,8 @@ interface Drag {
 
 let game: Game | null = null;
 let drag: Drag | null = null;
+/** The reference picture shown big in the middle of the screen, while it is open. */
+let zoom: HTMLElement | null = null;
 let onSolved: (s: Solved) => void = () => {};
 
 const field = () => byId("playfield");
@@ -129,6 +135,7 @@ export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageEl
 
 /** Creates the frame, the slot outlines and the piece canvases for the current layout. */
 function build(g: Game): void {
+  closeZoom(false);
   const pf = field();
   pf.replaceChildren();
   const { pw, ph, bx, by, bw, bh } = g.L;
@@ -152,7 +159,7 @@ function build(g: Game): void {
     })
   );
 
-  // The reference picture, with the hint button moved to its left.
+  // The reference picture, with the hint button moved to its left. A tap shows it big.
   const { x: rx, y: ry, w: rw, h: rh } = g.ref;
   const refArt = h("canvas", { "aria-hidden": "true" });
   refArt.width = Math.round((rw - 2 * REF_PAD) * dpr);
@@ -160,7 +167,8 @@ function build(g: Game): void {
   const refCtx = refArt.getContext("2d")!;
   refCtx.imageSmoothingQuality = "high";
   refCtx.drawImage(g.art, 0, 0, refArt.width, refArt.height);
-  pf.append(h("div", { class: "ref-card", style: `left: ${rx}px; top: ${ry}px; width: ${rw}px; height: ${rh}px` }, refArt));
+  const refStyle = `left: ${rx}px; top: ${ry}px; width: ${rw}px; height: ${rh}px`;
+  pf.append(h("div", { class: "ref-card", role: "button", "aria-label": "Show the picture big", style: refStyle }, refArt));
   byId("hintBtn").style.marginRight = `${rw + 16}px`;
 
   g.slots.className = "slots";
@@ -297,7 +305,14 @@ function onDown(e: PointerEvent): void {
   unlockAudio();
   const pt = toStage(field(), e.clientX, e.clientY);
   const p = hitPiece(g, pt.x, pt.y);
-  if (!p) return;
+  if (!p) {
+    // A piece lying over the reference picture is picked up first; otherwise a tap shows it big.
+    if (e.target instanceof Element && e.target.closest(".ref-card")) {
+      e.preventDefault();
+      openZoom(g);
+    }
+    return;
+  }
   e.preventDefault();
   field().setPointerCapture(e.pointerId);
   p.el.classList.remove("glide", "wiggle", "placed");
@@ -447,6 +462,77 @@ function relayout(): void {
   build(g);
 }
 
+function reduceMotion(): boolean {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+}
+
+/**
+ * Shows the reference picture big in the middle of the screen, growing out of its corner card.
+ * A tap anywhere puts it back; the pieces wait underneath until then.
+ */
+function openZoom(g: Game): void {
+  if (zoom) return;
+  const { width: SW, height: SH } = stageSize();
+  const aspect = g.L.bw / g.L.bh;
+  const k = Math.min((SW - 2 * ZOOM_MARGIN - 2 * ZOOM_PAD) / aspect, SH - 2 * ZOOM_MARGIN - 2 * ZOOM_PAD);
+  const iw = Math.round(k * aspect);
+  const ih = Math.round(k);
+  const cw = iw + 2 * ZOOM_PAD;
+  const ch = ih + 2 * ZOOM_PAD;
+  const cx = Math.round((SW - cw) / 2);
+  const cy = Math.round((SH - ch) / 2);
+
+  // Drawn from the photo itself, not the board-sized picture, so it stays sharp this big.
+  const [sx, sy, sw, sh] = cropRect(g.img.width, g.img.height, aspect);
+  const res = Math.max(0.1, Math.min(canvasScale(), sw / iw));
+  const art = h("canvas", { "aria-hidden": "true" });
+  art.width = Math.round(iw * res);
+  art.height = Math.round(ih * res);
+  const ctx = art.getContext("2d")!;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(g.img, sx, sy, sw, sh, 0, 0, art.width, art.height);
+
+  const card = h("div", { class: "zoom-card", style: `left: ${cx}px; top: ${cy}px; width: ${cw}px; height: ${ch}px` }, art);
+  const z = h("div", { class: "zoom", role: "button", "aria-label": "Make the picture small again" }, card);
+  z.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    closeZoom(true);
+  });
+  byId("s-play").append(z);
+  zoom = z;
+  const small = field().querySelector<HTMLElement>(".ref-card");
+  if (small) small.style.visibility = "hidden";
+  if (reduceMotion()) return;
+  card.animate([{ transform: fromRef(g, cx, cy, cw) }, { transform: "none" }], { duration: ZOOM_MS, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+  z.animate([{ backgroundColor: "rgba(61, 66, 74, 0)" }, {}], { duration: ZOOM_MS, easing: "ease-out" });
+}
+
+/** Puts the big picture back into its corner card, shrinking it there unless `animate` is false. */
+function closeZoom(animate: boolean): void {
+  const z = zoom;
+  if (!z) return;
+  zoom = null;
+  const g = game;
+  const card = z.querySelector<HTMLElement>(".zoom-card")!;
+  const done = () => {
+    z.remove();
+    const small = field().querySelector<HTMLElement>(".ref-card");
+    if (small) small.style.visibility = "";
+  };
+  if (!animate || !g || reduceMotion()) return done();
+  // Let go of the screen at once, so the child can pick up a piece while it shrinks.
+  z.style.pointerEvents = "none";
+  const to = fromRef(g, card.offsetLeft, card.offsetTop, card.offsetWidth);
+  card.animate([{ transform: "none" }, { transform: to }], { duration: ZOOM_MS, easing: "cubic-bezier(0.4, 0, 0.6, 1)", fill: "forwards" }).onfinish = done;
+  z.animate([{}, { backgroundColor: "rgba(61, 66, 74, 0)" }], { duration: ZOOM_MS, easing: "ease-in", fill: "forwards" });
+}
+
+/** The transform that puts the big card (at x, y, w wide, on the screen) over the small one in the corner. */
+function fromRef(g: Game, x: number, y: number, w: number): string {
+  const k = g.ref.w / w;
+  return `translate(${g.ref.x - x}px, ${g.ref.y + TOP_BAR - y}px) scale(${k})`;
+}
+
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 function toast(text: string): void {
   const t = byId("toast");
@@ -492,6 +578,7 @@ export function setupPlay(solved: (s: Solved) => void): void {
   window.addEventListener("resize", () => requestAnimationFrame(relayout));
   onEnter("play", () => {
     drag = null;
+    closeZoom(false);
   });
 }
 
@@ -515,6 +602,8 @@ export function debugState() {
     loc: g.st.loc,
     level: g.level,
     poses: g.poses,
+    zoomed: zoom !== null,
+    ref: g.ref,
     pieces: g.pieces.map((p) => ({ x: p.x, y: p.y }))
   };
 }
