@@ -27,6 +27,11 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // A new version takes over as soon as it is downloaded (src/ui/update.ts then reloads at a
+        // safe moment). The plugin only turns these on for autoUpdate when it injects the register
+        // code itself; without them a new version waits until every tab of the app is closed.
+        skipWaiting: true,
+        clientsClaim: true,
         // Everything the app needs is precached, so it works offline after the first visit.
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,wasm}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024

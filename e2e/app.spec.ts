@@ -405,6 +405,19 @@ test("works offline after the first visit", async ({ page, context, browserName 
   await context.setOffline(false);
 });
 
+test("a new version takes over as soon as it is downloaded", async ({ page, request, browserName }) => {
+  // The service worker must not wait for every tab of the app to close (or for a message) before a
+  // new version replaces it; src/ui/update.ts then reloads at a safe moment.
+  const sw = await (await request.get("sw.js")).text();
+  expect(sw).toContain("self.skipWaiting()");
+  expect(sw).toContain("clientsClaim()");
+  expect(sw).not.toContain("SKIP_WAITING");
+  test.skip(browserName !== "chromium", "Service worker control is checked in Chromium");
+  // It takes control on the first visit, without a reload.
+  await open(page);
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+});
+
 test("fills every iPad screen without scrolling", async ({ page }) => {
   await open(page);
   for (const [w, h] of [
