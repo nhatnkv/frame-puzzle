@@ -12,9 +12,11 @@ const FIELDS: Array<[number, number]> = [
 const PICTURES = [1, 4 / 3, 3 / 4, 16 / 9, 9 / 16];
 const REFERENCE = { top: -88, right: 36, max: 180 };
 
-/** Waiting pieces never overlap each other or the frame, and stay inside the playfield. */
-function expectClear(L: Layout, W: number, H: number) {
-  const { rx, ry } = pieceReach(L.pw, L.ph);
+/** Waiting pieces never overlap each other or the frame, and stay inside the playfield; turned ones too. */
+function expectClear(L: Layout, W: number, H: number, turning = false) {
+  const reach = pieceReach(L.pw, L.ph);
+  const rx = turning ? Math.max(reach.rx, reach.ry) : reach.rx;
+  const ry = turning ? rx : reach.ry;
   const frame = { x: L.bx - FRAME_BORDER, y: L.by - FRAME_BORDER, w: L.bw + 2 * FRAME_BORDER, h: L.bh + 2 * FRAME_BORDER };
   L.cells.forEach(([x, y], i) => {
     for (const [x2, y2] of L.cells.slice(i + 1)) {
@@ -73,6 +75,22 @@ describe("puzzle layout", () => {
             expect(overlaps(frame, ref)).toBe(false);
             const { rx, ry } = pieceReach(L.pw, L.ph);
             for (const [x, y] of L.cells) expect(overlaps({ x: x - rx, y: y - ry, w: 2 * rx, h: 2 * ry }, ref)).toBe(false);
+          }
+        });
+      }
+    }
+
+    // At hard, a waiting piece may be turned a quarter turn, so a wide piece stands up tall.
+    for (const [W, H] of FIELDS) {
+      for (const aspect of [16 / 9, 9 / 16]) {
+        it(`leaves room to turn the pieces of a ${aspect.toFixed(2)} picture at ${Math.round(W)}x${Math.round(H)}`, () => {
+          for (const n of PIECE_COUNTS) {
+            const { rows, cols, pieceAspect } = shapeFor(n, aspect);
+            const { layout: L, ref } = layoutWithReference(rows, cols, W, H, REFERENCE, pieceAspect, true);
+            expect(L.cells.length).toBeGreaterThanOrEqual(n);
+            expectClear(L, W, H, true);
+            const r = Math.max(...Object.values(pieceReach(L.pw, L.ph)));
+            for (const [x, y] of L.cells) expect(overlaps({ x: x - r, y: y - r, w: 2 * r, h: 2 * r }, ref)).toBe(false);
           }
         });
       }

@@ -15,6 +15,9 @@ interface FrameState {
   ch: number;
   cells: Array<[number, number]>;
   loc: Array<{ kind: "tray" | "board"; index?: number; cell?: number }>;
+  level: "easy" | "medium" | "hard";
+  /** How each piece faces: taps since it was the right way round. */
+  poses: number[];
   pieces: Array<{ x: number; y: number }>;
 }
 
@@ -35,9 +38,10 @@ async function pickKid(page: Page, name: string) {
   await expect(page.locator("#s-home")).toBeVisible();
 }
 
-async function startPuzzle(page: Page, pieces: number) {
+async function startPuzzle(page: Page, pieces: number, level?: "Easy" | "Medium" | "Hard") {
   await page.click(".home-card[data-go=choose]");
   await page.locator(".count-btn", { hasText: new RegExp(`^${pieces}$`) }).click();
+  if (level) await page.locator(".level-btn", { hasText: level }).click();
   await page.click("#startBtn");
   await expect(page.locator("#s-play")).toBeVisible();
   await expect(page.locator("#progress")).toHaveText(`0 / ${pieces}`);
@@ -77,6 +81,25 @@ async function dragPiece(page: Page, piece: number, cell: number | "outside", mi
   await page.waitForTimeout(300);
 }
 
+/** Taps a piece in its middle, as a child does to flip or turn it. */
+async function tapPiece(page: Page, piece: number, times = 1) {
+  for (let i = 0; i < times; i++) {
+    const s = await frame(page);
+    const g = await page.evaluate(() => {
+      const pf = document.getElementById("playfield")!.getBoundingClientRect();
+      const stage = document.getElementById("stage")!;
+      return { x: pf.x, y: pf.y, k: stage.getBoundingClientRect().width / stage.offsetWidth };
+    });
+    const q = s.pieces[piece];
+    await page.mouse.click(g.x + (q.x + s.cw / 2) * g.k, g.y + (q.y + s.ch / 2) * g.k);
+    await page.waitForTimeout(350);
+  }
+}
+
+/** The CSS a piece is shown with, to see it flipped or turned. */
+const pieceStyle = (page: Page, piece: number) =>
+  page.locator(".piece").nth(piece).evaluate((el) => ({ scale: el.style.scale, rotate: el.style.rotate }));
+
 /** A picture made in the page, as a file the photo picker would give. */
 async function pictureFile(page: Page, name: string, color: string) {
   const base64 = await page.evaluate((c) => {
@@ -102,6 +125,11 @@ test("a child solves a puzzle, swapping wrong pieces, and earns stars", async ({
   await pickKid(page, "Bin");
   await expect(page.locator("#s-home [data-stars]")).toHaveText("0");
   await startPuzzle(page, 4);
+  // Easy, as before: every piece faces the right way and a tap changes nothing.
+  const start = await frame(page);
+  expect(start.level).toBe("easy");
+  await tapPiece(page, 0);
+  expect(await frame(page)).toMatchObject({ poses: [0, 0, 0, 0], loc: start.loc });
 
   // Pieces 0 and 1 swapped: the frame is full but not right.
   await dragPiece(page, 0, 1);
@@ -120,6 +148,71 @@ test("a child solves a puzzle, swapping wrong pieces, and earns stars", async ({
 
   await page.click("#s-done [data-go=home]");
   await expect(page.locator("#s-home [data-stars]")).toHaveText("8");
+});
+
+test("at medium, a flipped piece fits any slot, and the picture is done once taps flip every piece back", async ({ page }) => {
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await startPuzzle(page, 4, "Medium");
+  let s = await frame(page);
+  expect(s.level).toBe("medium");
+  const flipped = s.poses.flatMap((p, i) => (p % 2 ? [i] : []));
+  expect(flipped).toHaveLength(2);
+  expect(await pieceStyle(page, flipped[0])).toMatchObject({ scale: "-1 1" });
+
+  for (let i = 0; i < 4; i++) await dragPiece(page, i, i);
+  await expect(page.locator("#progress")).toHaveText("4 / 4");
+  await expect(page.locator("#toast")).toContainText("flip");
+  await expect(page.locator("#s-play")).toBeVisible();
+
+  // A tap flips a piece back and leaves it in its slot.
+  await tapPiece(page, flipped[0]);
+  s = await frame(page);
+  expect(s.poses[flipped[0]] % 2).toBe(0);
+  expect(s.loc[flipped[0]]).toEqual({ kind: "board", cell: flipped[0] });
+  expect((await pieceStyle(page, flipped[0])).scale).not.toContain("-");
+  await expect(page.locator("#s-play")).toBeVisible();
+
+  // The light bulb puts the last flipped piece right, which finishes the picture.
+  await page.click("#hintBtn");
+  await expect(page.locator("#s-done")).toBeVisible();
+  await expect(page.locator("#earned")).toHaveText("+12");
+
+  // The level is remembered for this child.
+  await page.click("#s-done [data-go=home]");
+  await page.click(".home-card[data-go=choose]");
+  await expect(page.locator(".level-btn", { hasText: "Medium" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#rewardPreview")).toHaveText("+12");
+});
+
+test("at hard, each tap turns a piece a quarter turn clockwise, beside the frame or in it", async ({ page }) => {
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await startPuzzle(page, 4, "Hard");
+  const s = await frame(page);
+  expect(s.level).toBe("hard");
+  expect(s.poses.filter((p) => p % 4).length).toBeGreaterThanOrEqual(2);
+  const turnsLeft = (p: number) => (4 - (p % 4)) % 4;
+
+  // One turned piece goes into the frame as it is; the others are turned round first.
+  const late = s.poses.findIndex((p) => p % 4);
+  for (let i = 0; i < 4; i++) {
+    if (i !== late) await tapPiece(page, i, turnsLeft(s.poses[i]));
+    await dragPiece(page, i, i);
+  }
+  await expect(page.locator("#progress")).toHaveText("4 / 4");
+  await expect(page.locator("#toast")).toContainText("turn");
+  expect(await pieceStyle(page, late)).toMatchObject({ rotate: `${s.poses[late] * 90}deg` });
+
+  // Turning only ever goes clockwise: each tap adds a quarter turn, never back.
+  await tapPiece(page, late);
+  expect((await frame(page)).poses[late]).toBe(s.poses[late] + 1);
+  expect(await pieceStyle(page, late)).toMatchObject({ rotate: `${(s.poses[late] + 1) * 90}deg` });
+  await tapPiece(page, late, turnsLeft(s.poses[late] + 1));
+  await expect(page.locator("#s-done")).toBeVisible();
+  await expect(page.locator("#earned")).toHaveText("+16");
 });
 
 test("loose pieces never overlap and a piece dropped outside the frame goes back to the side", async ({ page }) => {

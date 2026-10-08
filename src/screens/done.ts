@@ -26,7 +26,7 @@ function reduceMotion(): boolean {
  */
 export function completePuzzle(s: Solved): void {
   const { db } = getApp();
-  const earned = recordPuzzle(db, currentKid().id, s.photoId, s.pieces);
+  const earned = recordPuzzle(db, currentKid().id, s.photoId, s.pieces, s.level);
   void db.flush();
   doneSound();
   sayWellDone();

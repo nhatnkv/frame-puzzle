@@ -71,7 +71,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 /* Choose */
 .choose-body { flex-grow: 1; display: flex; gap: 44px; align-items: center; }
 .preview-card { width: 500px; height: 500px; flex-shrink: 0; border-radius: 32px; background: var(--surface); border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
-.choose-side { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 22px; }
+.choose-side { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
 .source-row { display: flex; gap: 16px; }
 .source-btn { flex: 1; height: 80px; border-radius: 24px; background: var(--surface); border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 24px; font-weight: 700; position: relative; }
 .source-btn svg { width: 30px; height: 30px; }
@@ -91,6 +91,11 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .count-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 .count-btn { height: 62px; border-radius: 18px; border: 2px solid var(--line); background: var(--surface); font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .count-btn.on { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.level-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.level-btn { height: 62px; border-radius: 18px; border: 2px solid var(--line); background: var(--surface); font-size: 22px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.level-btn svg { width: 28px; height: 28px; color: var(--primary); }
+.level-btn.on { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.level-btn.on svg { color: var(--primary-ink); }
 .start-row { display: flex; align-items: center; gap: 20px; }
 .start-row .btn { flex-grow: 1; }
 
@@ -106,10 +111,10 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .playfield { position: absolute; left: 0; right: 0; top: 104px; bottom: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
 .frame { position: absolute; background: var(--wood); border-radius: 22px; box-shadow: inset 0 0 0 2px var(--wood-edge); }
 .slots { position: absolute; display: block; }
-.piece { position: absolute; display: block; filter: drop-shadow(0 3px 4px rgba(61, 66, 74, 0.18)); transform-origin: 50% 50%; will-change: left, top; }
+.piece { position: absolute; display: block; filter: drop-shadow(0 3px 4px rgba(61, 66, 74, 0.18)); transform-origin: 50% 50%; will-change: left, top; transition: scale 0.3s ease, rotate 0.3s ease; }
 .piece.placed { filter: none; }
 .piece.dragging { transform: scale(1.06); filter: drop-shadow(0 12px 14px rgba(61, 66, 74, 0.28)); }
-.piece.glide { transition: left 0.28s ease-out, top 0.28s ease-out; }
+.piece.glide { transition: left 0.28s ease-out, top 0.28s ease-out, scale 0.3s ease, rotate 0.3s ease; }
 .piece.wiggle { animation: wiggle 0.5s ease-in-out 2; }
 @keyframes wiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
 
@@ -251,7 +256,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 
 @media (prefers-reduced-motion: reduce) {
   #s-done.play .done-frame, #s-done.play .done-frame .shine, #s-done.play .done-side h2, #s-done.play .earn, #s-done.play .done-actions, #s-done .stars.bump { animation: none; }
-  .piece.glide { transition: none; }
+  .piece, .piece.glide { transition: none; }
   .piece.wiggle { animation: none; }
   .hold.pressing .ring circle { transition: none; }
 }

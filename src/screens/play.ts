@@ -1,22 +1,28 @@
 // The puzzle screen: a wooden frame with every slot's outline drawn on a gray board, and the
 // pieces waiting around it. The child drags pieces in and out; see src/puzzle/board.ts for the rules.
+// At medium and hard, pieces may start flipped or turned and a tap puts them round (src/puzzle/levels.ts).
 
 import { cellAt, deal, dealOrder, drop, isCorrect, isFull, isSolved, lift, piecesOnBoard, type BoardState, type Loc } from "../puzzle/board";
 import { cropRect, makeEdges, outlinePath, pieceOutline, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
 import { FRAME_BORDER, layoutWithReference, pieceMargin, REF_PAD, type Layout, type Rect } from "../puzzle/layout";
+import { DEFAULT_LEVEL, dealPoses, facesRight, poseExtent, poseStyle, rightPose, unturn, type Level } from "../puzzle/levels";
 import { byId, h } from "../ui/dom";
 import { current, go, onEnter } from "../ui/nav";
-import { returnSound, snapSound, unlockAudio } from "../ui/sound";
+import { flipSound, returnSound, snapSound, unlockAudio } from "../ui/sound";
 import { stageSize, toStage } from "../ui/stage";
 
 const TOP_BAR = 104;
 const HINT_MS = 2500;
+/** A touch that moves less than this (stage units) and lets go within TAP_MS is a tap, not a drag. */
+const TAP_SLOP = 10;
+const TAP_MS = 500;
 /** The whole picture in the top-right corner, for the child to look at while building it. */
 const REFERENCE = { top: 16 - TOP_BAR, right: 36, max: 180 };
 
 export interface Solved {
   photoId: number;
   pieces: number;
+  level: Level;
   /** The whole picture, in the puzzle's shape. */
   art: HTMLCanvasElement;
 }
@@ -32,6 +38,9 @@ interface Piece {
 
 interface Game {
   photoId: number;
+  level: Level;
+  /** For each piece, how it faces; see src/puzzle/levels.ts. Kept across a relayout. */
+  poses: number[];
   rows: number;
   cols: number;
   /** Width / height of one piece; the frame takes the picture's shape. */
@@ -64,6 +73,11 @@ interface Drag {
   dx: number;
   dy: number;
   pointerId: number;
+  /** Where and when the touch started, to tell a tap from a drag. */
+  sx: number;
+  sy: number;
+  t: number;
+  moved: boolean;
 }
 
 let game: Game | null = null;
@@ -77,15 +91,17 @@ const fieldSize = () => {
 };
 
 /** Starts a new puzzle from a picture. */
-export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageElement): void {
+export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageElement, level: Level = DEFAULT_LEVEL): void {
   const { rows, cols, pieceAspect } = shapeFor(count, img.width / img.height);
   const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) | 0;
   go("play");
   const { W, H } = fieldSize();
-  const { layout: L, ref } = layoutWithReference(rows, cols, W, H, REFERENCE, pieceAspect);
+  const { layout: L, ref } = layoutWithReference(rows, cols, W, H, REFERENCE, pieceAspect, level === "hard");
   const order = dealOrder(L.cells.length, rows * cols, rng(seed + 1));
   game = {
     photoId,
+    level,
+    poses: dealPoses(level, rows * cols, rng(seed + 2)),
     rows,
     cols,
     pieceAspect,
@@ -175,6 +191,7 @@ function build(g: Game): void {
       ctx.lineWidth = 1.5;
       ctx.stroke(path);
       const p: Piece = { index: r * g.cols + c, el, ctx, path, x: 0, y: 0 };
+      showPose(g, p);
       g.pieces.push(p);
       pf.append(el);
       moveTo(g, p, g.st.loc[p.index], false);
@@ -226,6 +243,25 @@ function moveTo(g: Game, p: Piece, loc: Loc | null, glide: boolean): void {
   setPos(p, glide);
 }
 
+/** Shows how a piece faces; changing it animates the flip or turn. */
+function showPose(g: Game, p: Piece): void {
+  const { scale, rotate } = poseStyle(g.level, g.poses[p.index]);
+  p.el.style.scale = scale;
+  p.el.style.rotate = rotate;
+}
+
+/** A tap flips the piece (medium) or turns it a quarter turn clockwise (hard). */
+function turnPiece(g: Game, p: Piece): void {
+  g.poses[p.index]++;
+  showPose(g, p);
+  flipSound();
+}
+
+/** In its own slot and the right way round. */
+function pieceDone(g: Game, i: number): boolean {
+  return isCorrect(g.st, i) && facesRight(g.level, g.poses[i]);
+}
+
 function setPos(p: Piece, glide = false): void {
   p.el.classList.toggle("glide", glide);
   p.el.style.left = `${p.x}px`;
@@ -240,8 +276,10 @@ function hitPiece(g: Game, x: number, y: number): Piece | null {
   // Topmost first: the dragged and loose pieces are above the placed ones.
   const list = [...g.pieces].sort((a, b) => Number(b.el.style.zIndex) - Number(a.el.style.zIndex));
   for (const p of list) {
-    const lx = x - p.x;
-    const ly = y - p.y;
+    // Into the piece's own coordinates, undoing a flip or turn.
+    const [ux, uy] = unturn(g.level, g.poses[p.index], x - p.x - g.cw / 2, y - p.y - g.ch / 2);
+    const lx = ux + g.cw / 2;
+    const ly = uy + g.ch / 2;
     if (lx < 0 || ly < 0 || lx > g.cw || ly > g.ch) continue;
     // The touch area follows the jigsaw shape, so a tab never steals a neighbour's touch.
     if (p.ctx.isPointInPath(p.path, lx * g.dpr, ly * g.dpr)) return p;
@@ -261,7 +299,17 @@ function onDown(e: PointerEvent): void {
   p.el.classList.remove("glide", "wiggle", "placed");
   p.el.classList.add("dragging");
   p.el.style.zIndex = "100000";
-  drag = { piece: p, from: lift(g.st, p.index), dx: pt.x - p.x, dy: pt.y - p.y, pointerId: e.pointerId };
+  drag = {
+    piece: p,
+    from: lift(g.st, p.index),
+    dx: pt.x - p.x,
+    dy: pt.y - p.y,
+    pointerId: e.pointerId,
+    sx: pt.x,
+    sy: pt.y,
+    t: performance.now(),
+    moved: false
+  };
   updateProgress(g);
 }
 
@@ -269,10 +317,15 @@ function onMove(e: PointerEvent): void {
   const g = game;
   if (!g || !drag || e.pointerId !== drag.pointerId) return;
   const pt = toStage(field(), e.clientX, e.clientY);
+  if (Math.hypot(pt.x - drag.sx, pt.y - drag.sy) > TAP_SLOP) drag.moved = true;
   const { W, H } = fieldSize();
   const p = drag.piece;
-  p.x = Math.round(Math.max(-g.m, Math.min(W - g.cw + g.m, pt.x - drag.dx)));
-  p.y = Math.round(Math.max(-g.m, Math.min(H - g.ch + g.m, pt.y - drag.dy)));
+  // Keep the piece on screen, as far as it reaches the way it is turned.
+  const [hw, hh] = poseExtent(g.level, g.poses[p.index], g.cw, g.ch);
+  const cx = Math.max(hw - g.m, Math.min(W - hw + g.m, pt.x - drag.dx + g.cw / 2));
+  const cy = Math.max(hh - g.m, Math.min(H - hh + g.m, pt.y - drag.dy + g.ch / 2));
+  p.x = Math.round(cx - g.cw / 2);
+  p.y = Math.round(cy - g.ch / 2);
   setPos(p);
 }
 
@@ -280,37 +333,46 @@ function onUp(e: PointerEvent): void {
   const g = game;
   if (!g || !drag || e.pointerId !== drag.pointerId) return;
   const { piece: p, from } = drag;
+  const tap = !drag.moved && performance.now() - drag.t < TAP_MS && e.type === "pointerup";
   drag = null;
   p.el.classList.remove("dragging");
+  // A tap leaves the piece where it was, so it lands back in the same place.
   const cx = p.x + g.cw / 2;
   const cy = p.y + g.ch / 2;
   const cell = cellAt(g.rows, g.cols, g.L.pw, g.L.ph, g.L.bx, g.L.by, cx, cy);
   const moves = drop(g.st, p.index, from, { cell, x: cx, y: cy }, g.L.cells);
   for (const mv of moves) moveTo(g, g.pieces[mv.piece], mv.to, true);
-  if (cell === null) returnSound();
+  if (tap && g.level !== "easy") turnPiece(g, p);
+  else if (cell === null) returnSound();
   else snapSound();
-  if (g.hint !== null && isCorrect(g.st, g.hint)) {
+  afterChange(g);
+}
+
+/** Clears a hint that is no longer needed, and finishes or nudges once the frame is full. */
+function afterChange(g: Game): void {
+  if (g.hint !== null && pieceDone(g, g.hint)) {
     g.hint = null;
     drawSlots(g);
   }
   updateProgress(g);
-  if (isFull(g.st)) {
-    if (isSolved(g.st)) finish(g);
-    else toast("Some pieces are in the wrong spot. Try swapping them!");
-  }
+  if (!isFull(g.st)) return;
+  if (!isSolved(g.st)) toast("Some pieces are in the wrong spot. Try swapping them!");
+  else if (g.pieces.every((p) => facesRight(g.level, g.poses[p.index]))) finish(g);
+  else if (g.level === "hard") toast("Some pieces are turned the wrong way. Tap them to turn them round!");
+  else toast("Some pieces are flipped. Tap them to flip them back!");
 }
 
 function finish(g: Game): void {
   g.finished = true;
   hideToast();
-  onSolved({ photoId: g.photoId, pieces: g.pieces.length, art: g.art });
+  onSolved({ photoId: g.photoId, pieces: g.pieces.length, level: g.level, art: g.art });
 }
 
-/** Lights up the right slot for one misplaced piece and wiggles that piece. */
+/** Lights up the right slot for one piece that is not done yet, wiggles it and puts it the right way round. */
 function showHint(): void {
   const g = game;
   if (!g || g.finished) return;
-  const wrong = g.pieces.filter((p) => !isCorrect(g.st, p.index) && p !== drag?.piece);
+  const wrong = g.pieces.filter((p) => !pieceDone(g, p.index) && p !== drag?.piece);
   if (!wrong.length) return;
   const p = wrong[Math.floor(Math.random() * wrong.length)];
   g.hint = p.index;
@@ -319,6 +381,12 @@ function showHint(): void {
   p.el.classList.remove("wiggle");
   void p.el.offsetWidth;
   p.el.classList.add("wiggle");
+  if (!facesRight(g.level, g.poses[p.index])) {
+    g.poses[p.index] = rightPose(g.level, g.poses[p.index]);
+    showPose(g, p);
+    flipSound();
+    afterChange(g);
+  }
   const key = p.index;
   setTimeout(() => {
     if (game === g && g.hint === key) {
@@ -344,7 +412,7 @@ function relayout(): void {
   }
   g.W = W;
   g.H = H;
-  const { layout: L, ref } = layoutWithReference(g.rows, g.cols, W, H, REFERENCE, g.pieceAspect);
+  const { layout: L, ref } = layoutWithReference(g.rows, g.cols, W, H, REFERENCE, g.pieceAspect, g.level === "hard");
   const n = g.rows * g.cols;
   const st: BoardState = { rows: g.rows, cols: g.cols, loc: Array(n).fill(null), tray: Array(L.cells.length).fill(null), board: Array(n).fill(null) };
   // Loose pieces are dealt out again in a random order, so they never line up in picture order.
@@ -433,6 +501,8 @@ export function debugState() {
     ch: g.ch,
     cells: g.L.cells,
     loc: g.st.loc,
+    level: g.level,
+    poses: g.poses,
     pieces: g.pieces.map((p) => ({ x: p.x, y: p.y }))
   };
 }

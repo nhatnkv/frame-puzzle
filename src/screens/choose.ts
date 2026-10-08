@@ -1,12 +1,13 @@
-// Choose a picture (import, reuse or delete) and how many pieces, with a preview of the cut.
+// Choose a picture (import, reuse or delete), how many pieces and the level, with a preview of the cut.
 
 import { getApp } from "../app";
 import { addPhoto, deletePhoto, getPhoto, isBuiltin, listPhotos, touchPhoto, type Photo } from "../data/photos";
 import { builtinUrl } from "../pictures";
 import { getSetting, setSetting } from "../data/settings";
 import { starsFor } from "../data/stars";
+import { DEFAULT_LEVEL, isLevel, LEVELS, type Level } from "../puzzle/levels";
 import { cropRect, DEFAULT_COUNT, makeEdges, outlinePath, pieceOutline, pieceSize, PIECE_COUNTS, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
-import { byId, h, twoTapDelete } from "../ui/dom";
+import { byId, h, icon, twoTapDelete } from "../ui/dom";
 import { canvasToJpeg, downscale, loadImageFile, loadImageUrl, onFilePicked } from "../ui/images";
 import { onEnter } from "../ui/nav";
 
@@ -15,6 +16,7 @@ const MAX_PHOTO = 1600;
 
 let photoId: number | null = null;
 let count: PieceCount = DEFAULT_COUNT;
+let level: Level = DEFAULT_LEVEL;
 let editing = false;
 let loaded: { id: number; img: HTMLImageElement } | null = null;
 const previewEdges = new Map<string, Edges>();
@@ -35,12 +37,21 @@ export async function photoImage(id: number): Promise<HTMLImageElement> {
 }
 
 const countKey = () => `count:${getApp().kid?.id ?? 0}`;
+const levelKey = () => `level:${getApp().kid?.id ?? 0}`;
 
-export function setupChoose(onStart: (photoId: number, count: PieceCount, img: HTMLImageElement) => void): void {
+const LEVEL_UI: Record<Level, { label: string; icon: string }> = {
+  easy: { label: "Easy", icon: "puzzle" },
+  medium: { label: "Medium", icon: "flip" },
+  hard: { label: "Hard", icon: "turn" }
+};
+
+export function setupChoose(onStart: (photoId: number, count: PieceCount, img: HTMLImageElement, level: Level) => void): void {
   onEnter("choose", () => {
     editing = false;
     const saved = Number(getSetting(getApp().db, countKey(), String(DEFAULT_COUNT)));
     count = (PIECE_COUNTS as readonly number[]).includes(saved) ? (saved as PieceCount) : DEFAULT_COUNT;
+    const savedLevel = getSetting(getApp().db, levelKey(), DEFAULT_LEVEL);
+    level = isLevel(savedLevel) ? savedLevel : DEFAULT_LEVEL;
     render();
   });
 
@@ -69,7 +80,8 @@ export function setupChoose(onStart: (photoId: number, count: PieceCount, img: H
     const id = photoId;
     touchPhoto(getApp().db, id);
     setSetting(getApp().db, countKey(), String(count));
-    onStart(id, count, await photoImage(id));
+    setSetting(getApp().db, levelKey(), level);
+    onStart(id, count, await photoImage(id), level);
   });
 }
 
@@ -131,7 +143,18 @@ function render(): void {
       return b;
     })
   );
-  byId("rewardPreview").textContent = `+${starsFor(count)}`;
+  byId("levelRow").replaceChildren(
+    ...LEVELS.map((lv) => {
+      const on = lv === level;
+      const b = h("button", { type: "button", class: `level-btn${on ? " on" : ""}`, "aria-pressed": on ? "true" : "false" }, icon(LEVEL_UI[lv].icon), LEVEL_UI[lv].label);
+      b.addEventListener("click", () => {
+        level = lv;
+        render();
+      });
+      return b;
+    })
+  );
+  byId("rewardPreview").textContent = `+${starsFor(count, level)}`;
 
   const cv = byId<HTMLCanvasElement>("preview");
   if (!photoId) {

@@ -52,7 +52,10 @@ export function pieceReach(pw: number, ph: number): { rx: number; ry: number } {
   return { rx: pw / 2 + tab, ry: ph / 2 + tab };
 }
 
-/** `keepOut` is an area no waiting piece may touch (the reference picture in the corner). */
+/**
+ * `keepOut` is an area no waiting piece may touch (the reference picture in the corner).
+ * `turning` is for pieces that may be turned a quarter turn, so they reach as far either way.
+ */
 export function trayCells(
   pw: number,
   ph: number,
@@ -62,7 +65,8 @@ export function trayCells(
   bh: number,
   W: number,
   H: number,
-  keepOut: Rect | null = null
+  keepOut: Rect | null = null,
+  turning = false
 ): Cell[] {
   const f = cellSize(pw, ph);
   const cells: Cell[] = [];
@@ -84,13 +88,15 @@ export function trayCells(
   grid(left, bottom, right - left, H - bottom - PAD); // below
   if (!keepOut) return cells;
   // Room for the tabs and the piece's shadow.
-  const { rx, ry } = pieceReach(pw, ph);
+  const reach = pieceReach(pw, ph);
+  const rx = turning ? Math.max(reach.rx, reach.ry) : reach.rx;
+  const ry = turning ? rx : reach.ry;
   return cells.filter(([x, y]) => !overlaps({ x: x - rx - 4, y: y - ry - 4, w: 2 * rx + 8, h: 2 * ry + 8 }, keepOut));
 }
 
 /**
  * The biggest pieces that still leave a waiting cell for every piece, outside `keepOut`.
- * `pieceAspect` is a piece's width / height (1 for square pieces).
+ * `pieceAspect` is a piece's width / height (1 for square pieces); `turning` as for trayCells().
  */
 export function layoutFor(
   rows: number,
@@ -98,7 +104,8 @@ export function layoutFor(
   W: number,
   H: number,
   keepOut: Rect | null = null,
-  pieceAspect = 1
+  pieceAspect = 1,
+  turning = false
 ): Layout {
   const n = rows * cols;
   const maxH = Math.min(MAX_BOARD, H - 2 * (FRAME_BORDER + PAD));
@@ -115,7 +122,7 @@ export function layoutFor(
     const by = Math.round((H - bh) / 2);
     const frame = { x: bx - FRAME_BORDER, y: by - FRAME_BORDER, w: bw + 2 * FRAME_BORDER, h: bh + 2 * FRAME_BORDER };
     if (keepOut && overlaps(frame, keepOut)) continue;
-    const cells = trayCells(pw, ph, bx, by, bw, bh, W, H, keepOut);
+    const cells = trayCells(pw, ph, bx, by, bw, bh, W, H, keepOut, turning);
     if (cells.length >= n) return { pw, ph, cell: cellSize(pw, ph), bx, by, bw, bh, cells };
   }
   throw new Error(`No room for ${n} pieces in ${W}x${H}`);
@@ -147,7 +154,8 @@ export function layoutWithReference(
   W: number,
   H: number,
   opts: { top: number; right: number; max: number },
-  pieceAspect = 1
+  pieceAspect = 1,
+  turning = false
 ): Plan {
   const a = (pieceAspect * cols) / rows;
   for (let m = opts.max; ; m -= 4) {
@@ -155,9 +163,9 @@ export function layoutWithReference(
     const h = Math.round(m * Math.min(1, 1 / a)) + 2 * REF_PAD;
     const ref = { x: W - opts.right - w, y: opts.top, w, h };
     const keepOut = { x: ref.x - REF_GAP, y: ref.y - REF_GAP, w: w + 2 * REF_GAP, h: h + 2 * REF_GAP };
-    if (keepOut.y + keepOut.h <= 0 || m <= 24) return { layout: layoutFor(rows, cols, W, H, null, pieceAspect), ref };
+    if (keepOut.y + keepOut.h <= 0 || m <= 24) return { layout: layoutFor(rows, cols, W, H, null, pieceAspect, turning), ref };
     try {
-      return { layout: layoutFor(rows, cols, W, H, keepOut, pieceAspect), ref };
+      return { layout: layoutFor(rows, cols, W, H, keepOut, pieceAspect, turning), ref };
     } catch {
       // No room at this size; try a smaller card.
     }

@@ -45,6 +45,12 @@ export function snapSound(): void {
   tone(990, 0.1, 0.05, 0.08);
 }
 
+/** A piece flips or turns round. */
+export function flipSound(): void {
+  tone(523, 0.08, 0, 0.07);
+  tone(784, 0.08, 0.06, 0.06);
+}
+
 /** A soft "back to the side" sound. */
 export function returnSound(): void {
   tone(392, 0.1, 0, 0.06);

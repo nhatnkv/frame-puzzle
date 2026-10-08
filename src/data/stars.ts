@@ -1,10 +1,11 @@
 import { AppDb, now } from "../db/database";
+import { starsPerPiece, type Level } from "../puzzle/levels";
 
 export type StarReason = "puzzle" | "redeem" | "parent";
 
-/** Stars earned for finishing a puzzle. */
-export function starsFor(pieces: number): number {
-  return pieces * 2;
+/** Stars earned for finishing a puzzle: 2 a piece at easy, 3 at medium, 4 at hard. */
+export function starsFor(pieces: number, level: Level = "easy"): number {
+  return pieces * starsPerPiece(level);
 }
 
 export function starTotal(db: AppDb, kidId: number): number {
@@ -30,8 +31,8 @@ export function adjustStars(db: AppDb, kidId: number, delta: number): number {
 }
 
 /** Records a finished puzzle and its stars in one step. Returns the stars earned. */
-export function recordPuzzle(db: AppDb, kidId: number, photoId: number | null, pieces: number): number {
-  const stars = starsFor(pieces);
+export function recordPuzzle(db: AppDb, kidId: number, photoId: number | null, pieces: number, level: Level = "easy"): number {
+  const stars = starsFor(pieces, level);
   db.transaction(() => {
     const id = db.run("INSERT INTO puzzles (kid_id, photo_id, pieces, stars, completed_at) VALUES (?, ?, ?, ?, ?)", [
       kidId,
