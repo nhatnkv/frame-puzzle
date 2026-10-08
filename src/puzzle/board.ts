@@ -1,14 +1,12 @@
 // The rules of the puzzle, without any drawing. Pieces are numbered row by row, so piece i
-// belongs in board cell i. A piece is either in a waiting cell ("tray") or in a board cell,
+// belongs in board cell (slot) i. A piece is either in a waiting cell ("tray") or in a board cell,
 // or in the child's hand while being dragged.
 
-import type { Cell } from "./layout";
+import type { Cell, Rect } from "./layout";
 
 export type Loc = { kind: "tray"; index: number } | { kind: "board"; cell: number };
 
 export interface BoardState {
-  rows: number;
-  cols: number;
   /** For each piece, where it is; null while it is being dragged. */
   loc: Array<Loc | null>;
   /** For each waiting cell, the piece in it. */
@@ -17,13 +15,11 @@ export interface BoardState {
   board: Array<number | null>;
 }
 
-/** A new game with the pieces dealt into waiting cells in the given order. */
-export function deal(rows: number, cols: number, trayCount: number, order: number[]): BoardState {
-  const n = rows * cols;
+/** A new game with the pieces dealt into waiting cells in the given order, piece i to order[i]. */
+export function deal(trayCount: number, order: number[]): BoardState {
+  const n = order.length;
   if (trayCount < n) throw new Error("Not enough waiting cells");
   const st: BoardState = {
-    rows,
-    cols,
     loc: Array(n).fill(null),
     tray: Array(trayCount).fill(null),
     board: Array(n).fill(null)
@@ -137,23 +133,24 @@ export function scatter(st: BoardState, rand: () => number): Move[] {
   });
 }
 
-/** Board cell under a point, or null when it is outside the frame (plus a forgiving margin). */
-export function cellAt(
-  rows: number,
-  cols: number,
-  pw: number,
-  ph: number,
-  bx: number,
-  by: number,
-  x: number,
-  y: number,
-  margin = 0.25
-): number | null {
-  const m = Math.min(pw, ph) * margin;
-  if (x < bx - m || x > bx + cols * pw + m || y < by - m || y > by + rows * ph + m) return null;
-  const col = Math.max(0, Math.min(cols - 1, Math.floor((x - bx) / pw)));
-  const row = Math.max(0, Math.min(rows - 1, Math.floor((y - by) / ph)));
-  return row * cols + col;
+/**
+ * The board cell a piece goes into when it is let go with its centre at (x, y): while the point is
+ * over the frame (plus a forgiving `margin`), the cell whose centre is nearest, of those the piece
+ * fits (a lying piece fits a lying cell, a standing one a standing cell); otherwise null.
+ */
+export function slotAt(slots: Rect[], frame: Rect, margin: number, x: number, y: number, fits: (slot: number) => boolean = () => true): number | null {
+  if (x < frame.x - margin || x > frame.x + frame.w + margin || y < frame.y - margin || y > frame.y + frame.h + margin) return null;
+  let best: number | null = null;
+  let bd = Infinity;
+  slots.forEach((s, i) => {
+    if (!fits(i)) return;
+    const d = (s.x + s.w / 2 - x) ** 2 + (s.y + s.h / 2 - y) ** 2;
+    if (d < bd) {
+      bd = d;
+      best = i;
+    }
+  });
+  return best;
 }
 
 export function isCorrect(st: BoardState, piece: number): boolean {

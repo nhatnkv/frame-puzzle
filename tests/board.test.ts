@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cellAt, deal, dealOrder, drop, isFull, isSolved, lift, piecesOnBoard, scatter, shuffledCells } from "../src/puzzle/board";
+import type { Rect } from "../src/puzzle/layout";
+import { deal, dealOrder, drop, isFull, isSolved, lift, piecesOnBoard, scatter, shuffledCells, slotAt } from "../src/puzzle/board";
 import { rng } from "../src/puzzle/geometry";
 import type { Cell } from "../src/puzzle/layout";
 
@@ -8,7 +9,7 @@ const cells: Cell[] = [[100, 100], [100, 250], [100, 400], [800, 100], [800, 250
 const at = (cell: number) => ({ cell, x: 0, y: 0 });
 
 function fresh() {
-  return deal(2, 2, cells.length, [0, 1, 3, 4]);
+  return deal(cells.length, [0, 1, 3, 4]);
 }
 
 describe("board rules", () => {
@@ -69,7 +70,7 @@ describe("board rules", () => {
   });
 
   it("never puts two pieces in one waiting cell", () => {
-    const st = deal(3, 3, 12, shuffledCells(12, rng(3)).slice(0, 9));
+    const st = deal(12, shuffledCells(12, rng(3)).slice(0, 9));
     const r = rng(9);
     for (let i = 0; i < 200; i++) {
       const piece = Math.floor(r() * 9);
@@ -110,12 +111,34 @@ describe("scatter", () => {
   });
 });
 
-describe("cellAt", () => {
+/** The cells of a rows x cols grid of `pw` x `ph` cells at (bx, by), and the frame around them. */
+function grid(rows: number, cols: number, pw: number, ph: number, bx: number, by: number): [Rect[], Rect] {
+  const slots = Array.from({ length: rows * cols }, (_, i) => ({ x: bx + (i % cols) * pw, y: by + Math.floor(i / cols) * ph, w: pw, h: ph }));
+  return [slots, { x: bx, y: by, w: cols * pw, h: rows * ph }];
+}
+
+describe("slotAt", () => {
   it("finds the cell under a point and forgives drops just outside the frame", () => {
-    expect(cellAt(2, 2, 100, 100, 300, 100, 350, 150)).toBe(0);
-    expect(cellAt(2, 2, 100, 100, 300, 100, 450, 250)).toBe(3);
-    expect(cellAt(2, 2, 100, 100, 300, 100, 290, 150)).toBe(0);
-    expect(cellAt(2, 2, 100, 100, 300, 100, 200, 150)).toBeNull();
+    const [slots, frame] = grid(2, 2, 100, 100, 300, 100);
+    expect(slotAt(slots, frame, 25, 350, 150)).toBe(0);
+    expect(slotAt(slots, frame, 25, 450, 250)).toBe(3);
+    expect(slotAt(slots, frame, 25, 290, 150)).toBe(0);
+    expect(slotAt(slots, frame, 25, 200, 150)).toBeNull();
+  });
+
+  it("puts a piece into the nearest cell of its own shape", () => {
+    // A lying cell on top of two standing ones, cells 100 x 100.
+    const slots = [
+      { x: 0, y: 0, w: 200, h: 100 },
+      { x: 0, y: 100, w: 100, h: 200 },
+      { x: 100, y: 100, w: 100, h: 200 }
+    ];
+    const frame = { x: 0, y: 0, w: 200, h: 300 };
+    const lying = (i: number) => slots[i].w > slots[i].h;
+    expect(slotAt(slots, frame, 25, 60, 150)).toBe(1);
+    expect(slotAt(slots, frame, 25, 60, 150, lying)).toBe(0);
+    expect(slotAt(slots, frame, 25, 60, 40, (i) => !lying(i))).toBe(1);
+    expect(slotAt(slots, frame, 25, 60, 40, () => false)).toBeNull();
   });
 
   it("deals pieces to random cells, never in picture order", () => {
@@ -141,9 +164,10 @@ describe("cellAt", () => {
 
   it("finds cells of rectangular pieces", () => {
     // 2 x 3 pieces, each 120 wide and 80 high, board at (0, 0).
-    expect(cellAt(2, 3, 120, 80, 0, 0, 130, 10)).toBe(1);
-    expect(cellAt(2, 3, 120, 80, 0, 0, 350, 150)).toBe(5);
-    expect(cellAt(2, 3, 120, 80, 0, 0, 370, 150)).toBe(5);
-    expect(cellAt(2, 3, 120, 80, 0, 0, 390, 150)).toBeNull();
+    const [slots, frame] = grid(2, 3, 120, 80, 0, 0);
+    expect(slotAt(slots, frame, 20, 130, 10)).toBe(1);
+    expect(slotAt(slots, frame, 20, 350, 150)).toBe(5);
+    expect(slotAt(slots, frame, 20, 370, 150)).toBe(5);
+    expect(slotAt(slots, frame, 20, 390, 150)).toBeNull();
   });
 });

@@ -41,6 +41,14 @@ export interface Layout {
   cells: Cell[];
 }
 
+/**
+ * The size a waiting cell is made for: a grid cell, or for pieces two cells long (`span` 2), the
+ * longest such piece, as long as two of the longer cell side and as wide as the shorter one.
+ */
+export function loosePiece(pw: number, ph: number, span = 1): { tw: number; th: number } {
+  return span === 1 ? { tw: pw, th: ph } : { tw: span * Math.max(pw, ph), th: Math.min(pw, ph) };
+}
+
 /** Side of the waiting cell for a piece. */
 export function cellSize(pw: number, ph: number): number {
   return Math.max(pw, ph) + (CELL_FACTOR - 1) * Math.min(pw, ph);
@@ -96,7 +104,8 @@ export function trayCells(
 
 /**
  * The biggest pieces that still leave a waiting cell for every piece, outside `keepOut`.
- * `pieceAspect` is a piece's width / height (1 for square pieces); `turning` as for trayCells().
+ * `pieceAspect` is a grid cell's width / height (1 for square cells); `turning` as for trayCells().
+ * `pieces` and `span` are for pieces two cells long (see loosePiece()).
  */
 export function layoutFor(
   rows: number,
@@ -105,25 +114,28 @@ export function layoutFor(
   H: number,
   keepOut: Rect | null = null,
   pieceAspect = 1,
-  turning = false
+  turning = false,
+  pieces = rows * cols,
+  span = 1
 ): Layout {
-  const n = rows * cols;
+  const n = pieces;
   const maxH = Math.min(MAX_BOARD, H - 2 * (FRAME_BORDER + PAD));
   const maxW = Math.min(MAX_BOARD_WIDE, W - 2 * (FRAME_BORDER + PAD));
   const frameAspect = (pieceAspect * cols) / rows;
   const boxW = Math.min(maxW, Math.max(MAX_BOARD, maxH * frameAspect));
   // The longer side of a piece, from the biggest that fits the frame's box.
   const start = Math.floor(Math.min(boxW / cols / Math.min(1, pieceAspect), maxH / rows / Math.min(1, 1 / pieceAspect)));
-  for (let size = start; size >= MIN_PIECE; size -= 2) {
+  for (let size = start; size * span >= MIN_PIECE; size -= 2) {
     const { pw, ph } = pieceSize(size, pieceAspect);
+    const { tw, th } = loosePiece(pw, ph, span);
     const bw = cols * pw;
     const bh = rows * ph;
     const bx = Math.round((W - bw) / 2);
     const by = Math.round((H - bh) / 2);
     const frame = { x: bx - FRAME_BORDER, y: by - FRAME_BORDER, w: bw + 2 * FRAME_BORDER, h: bh + 2 * FRAME_BORDER };
     if (keepOut && overlaps(frame, keepOut)) continue;
-    const cells = trayCells(pw, ph, bx, by, bw, bh, W, H, keepOut, turning);
-    if (cells.length >= n) return { pw, ph, cell: cellSize(pw, ph), bx, by, bw, bh, cells };
+    const cells = trayCells(tw, th, bx, by, bw, bh, W, H, keepOut, turning);
+    if (cells.length >= n) return { pw, ph, cell: cellSize(tw, th), bx, by, bw, bh, cells };
   }
   throw new Error(`No room for ${n} pieces in ${W}x${H}`);
 }
@@ -155,7 +167,9 @@ export function layoutWithReference(
   H: number,
   opts: { top: number; right: number; max: number },
   pieceAspect = 1,
-  turning = false
+  turning = false,
+  pieces = rows * cols,
+  span = 1
 ): Plan {
   const a = (pieceAspect * cols) / rows;
   for (let m = opts.max; ; m -= 4) {
@@ -163,9 +177,9 @@ export function layoutWithReference(
     const h = Math.round(m * Math.min(1, 1 / a)) + 2 * REF_PAD;
     const ref = { x: W - opts.right - w, y: opts.top, w, h };
     const keepOut = { x: ref.x - REF_GAP, y: ref.y - REF_GAP, w: w + 2 * REF_GAP, h: h + 2 * REF_GAP };
-    if (keepOut.y + keepOut.h <= 0 || m <= 24) return { layout: layoutFor(rows, cols, W, H, null, pieceAspect, turning), ref };
+    if (keepOut.y + keepOut.h <= 0 || m <= 24) return { layout: layoutFor(rows, cols, W, H, null, pieceAspect, turning, pieces, span), ref };
     try {
-      return { layout: layoutFor(rows, cols, W, H, keepOut, pieceAspect, turning), ref };
+      return { layout: layoutFor(rows, cols, W, H, keepOut, pieceAspect, turning, pieces, span), ref };
     } catch {
       // No room at this size; try a smaller card.
     }

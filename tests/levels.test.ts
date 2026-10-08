@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { rng } from "../src/puzzle/geometry";
-import { costsStars, dealPoses, facesRight, isLevel, LEVELS, hintCostsStars, hintLimit, hintPercent, playable, starCost, poseExtent, poseStyle, rightPose, scattersOnMistake, starsPerPiece, turns, unturn, type Level } from "../src/puzzle/levels";
+import { BIG_COUNTS, COUNTS, rng } from "../src/puzzle/geometry";
+import { costsStars, dealPoses, facesRight, isLevel, LEVELS, hintCostsStars, hintLimit, hintPercent, pieceCounts, playable, starCost, poseExtent, poseStyle, rightPose, scattersOnMistake, starsPerPiece, turns, unturn, type Level } from "../src/puzzle/levels";
 import { starsFor } from "../src/data/stars";
 
 /** Where CSS puts a point (relative to the centre) for the pose: mirror, or turn clockwise on screen. */
@@ -29,6 +29,14 @@ describe("levels", () => {
       expect([0, 1, 4].map((p) => facesRight(level, p))).toEqual([true, false, true]);
       for (let seed = 1; seed < 30; seed++) expect(dealPoses(level, 9, rng(seed))).toEqual(dealPoses("hard", 9, rng(seed)));
     }
+  });
+
+  it("offers only big puzzles, 30 to 70 pieces, at Extreme and Ultimate", () => {
+    for (const lv of ["easy", "medium", "hard"] as const) expect(pieceCounts(lv)).toBe(COUNTS);
+    for (const lv of ["extreme", "ultimate"] as const) expect(pieceCounts(lv)).toBe(BIG_COUNTS);
+    expect(BIG_COUNTS).toHaveLength(12);
+    expect(Math.min(...BIG_COUNTS)).toBe(30);
+    expect(Math.max(...BIG_COUNTS)).toBe(70);
   });
 
   it("costs 1% of the child's stars for a mistake at Ultimate or a hint at Extreme, rounded up", () => {

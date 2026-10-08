@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gridFor, PIECE_COUNTS, shapeFor } from "../src/puzzle/geometry";
-import { FRAME_BORDER, layoutFor, layoutWithReference, overlaps, pieceReach, REF_PAD, type Layout } from "../src/puzzle/layout";
+import { FRAME_BORDER, layoutFor, layoutWithReference, loosePiece, overlaps, pieceReach, REF_PAD, type Layout } from "../src/puzzle/layout";
 
 // The playfield is the stage below the top bar, on the smallest and largest iPad shapes.
 const FIELDS: Array<[number, number]> = [
@@ -75,6 +75,24 @@ describe("puzzle layout", () => {
             expect(overlaps(frame, ref)).toBe(false);
             const { rx, ry } = pieceReach(L.pw, L.ph);
             for (const [x, y] of L.cells) expect(overlaps({ x: x - rx, y: y - ry, w: 2 * rx, h: 2 * ry }, ref)).toBe(false);
+          }
+        });
+      }
+    }
+
+    // From Hard up, pieces are two cells long, lying or standing, and may be turned either way.
+    for (const [W, H] of FIELDS) {
+      for (const aspect of PICTURES) {
+        it(`fits pieces two cells long of a ${aspect.toFixed(2)} picture at ${Math.round(W)}x${Math.round(H)}`, () => {
+          for (const n of PIECE_COUNTS) {
+            const { rows, cols, pieceAspect } = shapeFor(n, aspect, true);
+            const { layout: L, ref } = layoutWithReference(rows, cols, W, H, REFERENCE, pieceAspect, true, n, 2);
+            expect(L.cells.length).toBeGreaterThanOrEqual(n);
+            expect(Math.min(L.pw, L.ph)).toBeGreaterThanOrEqual(n <= 9 ? 50 : 20);
+            const { tw, th } = loosePiece(L.pw, L.ph, 2);
+            expectClear({ ...L, pw: tw, ph: th }, W, H, true);
+            const r = Math.max(...Object.values(pieceReach(tw, th)));
+            for (const [x, y] of L.cells) expect(overlaps({ x: x - r, y: y - r, w: 2 * r, h: 2 * r }, ref)).toBe(false);
           }
         });
       }

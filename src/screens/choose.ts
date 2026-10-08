@@ -6,8 +6,8 @@ import { addPhoto, deletePhoto, getPhoto, isBuiltin, listPhotos, touchPhoto, typ
 import { builtinUrl, categoryOf, type Category } from "../pictures";
 import { getSetting, setSetting } from "../data/settings";
 import { starsFor, starTotal } from "../data/stars";
-import { DEFAULT_LEVEL, isLevel, LEVELS, playable, scattersOnMistake, type Level } from "../puzzle/levels";
-import { cropRect, DEFAULT_COUNT, makeEdges, outlinePath, pieceOutline, pieceSize, PIECE_COUNTS, rng, shapeFor, type Edges, type PieceCount } from "../puzzle/geometry";
+import { DEFAULT_LEVEL, isLevel, LEVELS, mixesShapes, pieceCounts, playable, scattersOnMistake, type Level } from "../puzzle/levels";
+import { cropRect, DEFAULT_BIG_COUNT, DEFAULT_COUNT, dominoes, gridPieces, makeEdges, outlinePath, pieceOutline, pieceSize, rng, shapeFor, type Block, type Edges, type PieceCount } from "../puzzle/geometry";
 import { byId, h, icon, twoTapDelete } from "../ui/dom";
 import { HEAT } from "../ui/heat";
 import { canvasToJpeg, downscale, loadImageFile, loadImageUrl, onFilePicked } from "../ui/images";
@@ -18,13 +18,14 @@ const PREVIEW = 440;
 const MAX_PHOTO = 1600;
 
 let photoId: number | null = null;
-let count: PieceCount = DEFAULT_COUNT;
+/** The piece count chosen for most levels, and for Extreme and Ultimate, which offer bigger ones. */
+const chosen: Record<CountList, PieceCount> = { small: DEFAULT_COUNT, big: DEFAULT_BIG_COUNT };
 let level: Level = DEFAULT_LEVEL;
 let filter: Filter = "all";
 let menuOpen = false;
 let editing = false;
 let loaded: { id: number; img: HTMLImageElement } | null = null;
-const previewEdges = new Map<string, Edges>();
+const previewCuts = new Map<string, { E: Edges; blocks: Block[] }>();
 
 function photoUrl(p: Photo): Promise<string | null> {
   return isBuiltin(p) ? Promise.resolve(builtinUrl(p.file_key)) : getApp().files.url(p.file_key);
@@ -51,7 +52,10 @@ const FILTERS: Array<{ id: Filter; label: string; icon: string }> = [
 ];
 const isFilter = (v: string): v is Filter => FILTERS.some((f) => f.id === v);
 
-const countKey = () => `count:${getApp().kid?.id ?? 0}`;
+type CountList = "small" | "big";
+const listOf = (lv: Level): CountList => (scattersOnMistake(lv) ? "big" : "small");
+const count = () => chosen[listOf(level)];
+const countKey = (list: CountList) => `${list === "big" ? "big-count" : "count"}:${getApp().kid?.id ?? 0}`;
 const filterKey = () => `pictures:${getApp().kid?.id ?? 0}`;
 const levelKey = () => `level:${getApp().kid?.id ?? 0}`;
 
@@ -67,8 +71,10 @@ const LEVEL_UI: Record<Level, { label: string; icon: string; note: string }> = {
 export function setupChoose(onStart: (photoId: number, count: PieceCount, img: HTMLImageElement, level: Level) => void): void {
   onEnter("choose", () => {
     editing = false;
-    const saved = Number(getSetting(getApp().db, countKey(), String(DEFAULT_COUNT)));
-    count = (PIECE_COUNTS as readonly number[]).includes(saved) ? (saved as PieceCount) : DEFAULT_COUNT;
+    for (const [list, lv, fallback] of [["small", "easy", DEFAULT_COUNT], ["big", "extreme", DEFAULT_BIG_COUNT]] as const) {
+      const saved = Number(getSetting(getApp().db, countKey(list), String(fallback)));
+      chosen[list] = pieceCounts(lv).find((n) => n === saved) ?? fallback;
+    }
     const savedLevel = getSetting(getApp().db, levelKey(), DEFAULT_LEVEL);
     level = isLevel(savedLevel) ? savedLevel : DEFAULT_LEVEL;
     const savedFilter = getSetting(getApp().db, filterKey(), "all");
@@ -123,9 +129,9 @@ export function setupChoose(onStart: (photoId: number, count: PieceCount, img: H
     if (!photoId) return;
     const id = photoId;
     touchPhoto(getApp().db, id);
-    setSetting(getApp().db, countKey(), String(count));
+    setSetting(getApp().db, countKey(listOf(level)), String(count()));
     setSetting(getApp().db, levelKey(), level);
-    onStart(id, count, await photoImage(id), level);
+    onStart(id, count(), await photoImage(id), level);
   });
 }
 
@@ -193,20 +199,22 @@ function render(): void {
 
   byId<HTMLButtonElement>("startBtn").disabled = !photoId;
 
-  const grid = byId("countGrid");
-  grid.replaceChildren(
-    ...PIECE_COUNTS.map((n) => {
-      const b = h("button", { type: "button", class: `count-btn${n === count ? " on" : ""}`, "aria-pressed": n === count ? "true" : "false" }, String(n));
+  // Ultimate is locked while the child has no stars to lose; Extreme stands in for it.
+  const stars = getApp().kid ? starTotal(getApp().db, getApp().kid!.id) : 0;
+  if (!playable(level, stars)) level = "extreme";
+  // The level decides which counts there are; each list keeps its own choice.
+  const list = listOf(level);
+  byId("countGrid").replaceChildren(
+    ...pieceCounts(level).map((n) => {
+      const on = n === chosen[list];
+      const b = h("button", { type: "button", class: `count-btn${on ? " on" : ""}`, "aria-pressed": on ? "true" : "false" }, String(n));
       b.addEventListener("click", () => {
-        count = n;
+        chosen[list] = n;
         render();
       });
       return b;
     })
   );
-  // Ultimate is locked while the child has no stars to lose; Extreme stands in for it.
-  const stars = getApp().kid ? starTotal(getApp().db, getApp().kid!.id) : 0;
-  if (!playable(level, stars)) level = "extreme";
   byId("levelRow").replaceChildren(
     ...LEVELS.map((lv) => {
       const on = lv === level;
@@ -232,7 +240,7 @@ function render(): void {
   const note = byId("levelNote");
   note.textContent = LEVEL_UI[level].note;
   note.style.color = HEAT[LEVELS.indexOf(level)];
-  byId("rewardPreview").textContent = `+${starsFor(count, level)}`;
+  byId("rewardPreview").textContent = `+${starsFor(count(), level)}`;
 
   const cv = byId<HTMLCanvasElement>("preview");
   if (!photoId) {
@@ -293,18 +301,21 @@ function drawPreview(cv: HTMLCanvasElement, img: HTMLImageElement): void {
   const x = cv.getContext("2d")!;
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
   x.imageSmoothingQuality = "high";
-  const { rows, cols, pieceAspect } = shapeFor(count, img.width / img.height);
+  const n = count();
+  const mixed = mixesShapes(level);
+  const { rows, cols, pieceAspect } = shapeFor(n, img.width / img.height, mixed);
   const size = Math.floor(Math.min(PREVIEW / cols / Math.min(1, pieceAspect), PREVIEW / rows / Math.min(1, 1 / pieceAspect)));
   const { pw, ph } = pieceSize(size, pieceAspect);
   const bw = cols * pw;
   const bh = rows * ph;
   const ox = (PREVIEW - bw) / 2;
   const oy = (PREVIEW - bh) / 2;
-  const key = `${rows}x${cols}`;
-  let E = previewEdges.get(key);
-  if (!E) {
-    E = makeEdges(rows, cols, rng(count * 7919));
-    previewEdges.set(key, E);
+  // From Hard up, an example of pieces lying and standing; each puzzle gets its own mix.
+  const key = `${rows}x${cols}${mixed ? " mixed" : ""}`;
+  let cut = previewCuts.get(key);
+  if (!cut) {
+    cut = { E: makeEdges(rows, cols, rng(n * 7919)), blocks: mixed ? dominoes(rows, cols, rng(n * 7919 + 1)) : gridPieces(rows, cols) };
+    previewCuts.set(key, cut);
   }
   x.clearRect(0, 0, PREVIEW, PREVIEW);
   const [sx, sy, sw, sh] = cropRect(img.width, img.height, bw / bh);
@@ -316,6 +327,6 @@ function drawPreview(cv: HTMLCanvasElement, img: HTMLImageElement): void {
   x.strokeStyle = "rgba(255,255,255,0.95)";
   x.lineWidth = Math.min(pw, ph) > 80 ? 3 : 2;
   x.lineJoin = "round";
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) x.stroke(outlinePath(pieceOutline(r, c, pw, ph, E), -ox, -oy));
+  for (const b of cut.blocks) x.stroke(outlinePath(pieceOutline(b, pw, ph, cut.E), -ox, -oy));
   x.restore();
 }
