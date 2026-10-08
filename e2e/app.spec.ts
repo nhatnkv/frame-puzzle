@@ -397,14 +397,20 @@ test("pictures can be shown one category at a time, remembered for each child", 
   await page.click("#s-choose [data-go=home]");
   await page.click(".home-card[data-go=choose]");
   await expect(page.locator("#categoryBtn")).toHaveText(/Landscapes\s*\(10\)/);
-  // Everything fits on the smallest iPad screen, Start included, with all the pictures.
+  // Everything fits, Start included, with all the pictures: on the smallest iPad and on a wide,
+  // short browser window, where the whole screen is scaled up.
   await page.click("#categoryBtn");
   await menu.locator(".cat-item", { hasText: "All pictures" }).click();
   await expect(thumbs).toHaveCount(15);
-  await page.setViewportSize({ width: 1024, height: 768 });
-  await page.waitForTimeout(200);
-  const start = await page.locator("#startBtn").boundingBox();
-  expect(start!.y + start!.height).toBeLessThanOrEqual(768);
+  for (const [w, h] of [
+    [1024, 768],
+    [2560, 1300]
+  ]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(200);
+    const start = await page.locator("#startBtn").boundingBox();
+    expect(start!.y + start!.height, `Start at ${w}x${h}`).toBeLessThanOrEqual(h);
+  }
 });
 
 test("the frame takes the shape of a wide photo, so none of it is cut off", async ({ page }) => {

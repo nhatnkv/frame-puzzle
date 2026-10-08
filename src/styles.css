@@ -78,8 +78,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .source-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .label { font-size: 19px; font-weight: 700; color: var(--muted); letter-spacing: 0.2px; }
 .group { display: flex; flex-direction: column; gap: 12px; }
-/* One row that scrolls sideways, with the next picture peeking in so it is clear there are more. */
-.library { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 5 * 12px) / 6.4); gap: 12px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; padding: 4px; margin: -4px; }
+/* One row that scrolls sideways; a picture cut off at the edge shows there are more. The size is
+   fixed so a wide screen shows more pictures, not taller ones that push Start off the screen. */
+.library { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 84px; gap: 12px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; padding: 4px; margin: -4px; }
 .library.is-empty { display: block; }
 .lib-item { position: relative; }
 .del-badge { position: absolute; top: -6px; right: -6px; width: 36px; height: 36px; border-radius: 18px; border: 2px solid var(--surface); background: var(--danger); color: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 0; box-shadow: 0 2px 6px rgba(61, 66, 74, 0.2); }
