@@ -1,8 +1,18 @@
 name: CI
 
+# Runs once per change: on pull requests, and on pushes to the default branch (a push to a PR's
+# branch is covered by its pull_request run). A newer push cancels the run it replaces. One job
+# does everything, so the setup (checkout, npm ci) is paid for once: Actions minutes are limited
+# while the repository is private.
 on:
-  push:
   pull_request:
+  push:
+    branches: [claude/ios-frame-puzzle-mvp-pdpzm1]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -29,17 +39,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
-
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
+      # End-to-end tests build the app themselves, so there is no separate build step.
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run e2e
       - uses: actions/upload-artifact@v4
