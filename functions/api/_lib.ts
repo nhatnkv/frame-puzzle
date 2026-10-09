@@ -1,27 +1,57 @@
-// Shared pieces of the API: the few Cloudflare types it uses (so the app does not need
-// @cloudflare/workers-types) and finding the family a request belongs to.
+// Shared pieces of the API: the Pages Functions types it uses (so the app does not need
+// @cloudflare/workers-types), the connection to the family's Postgres database, and finding the
+// family a request belongs to.
 
-export interface D1PreparedStatement {
-  bind(...values: unknown[]): D1PreparedStatement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
-  run(): Promise<unknown>;
-}
-
-export interface D1Database {
-  prepare(query: string): D1PreparedStatement;
-  batch(statements: D1PreparedStatement[]): Promise<unknown[]>;
-}
+import postgres from "postgres";
 
 export interface Env {
-  DB: D1Database;
+  /** postgres://user:password@host/db, set as a secret on the Pages project. */
+  DATABASE_URL: string;
 }
 
 export type PagesFunction = (context: {
   request: Request;
   env: Env;
   params: Record<string, string | string[]>;
+  waitUntil(promise: Promise<unknown>): void;
 }) => Response | Promise<Response>;
+
+/** The few database calls the API makes. */
+export interface Db {
+  query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
+  /** Runs `fn` in one transaction. */
+  begin<T>(fn: (tx: Db) => Promise<T>): Promise<T>;
+}
+
+type Sql = postgres.Sql | postgres.TransactionSql;
+
+function wrap(sql: Sql): Db {
+  return {
+    query: async <T>(text: string, params: unknown[] = []) =>
+      (await sql.unsafe(text, params as postgres.ParameterOrJSON<never>[])) as unknown as T[],
+    begin: <T>(fn: (tx: Db) => Promise<T>) =>
+      (sql as postgres.Sql).begin((tx) => fn(wrap(tx))) as Promise<T>
+  };
+}
+
+/**
+ * Runs `fn` with a database connection made for this request (a Worker cannot keep one between
+ * requests), and closes it once the response is sent.
+ */
+export async function withDb(
+  env: Env,
+  waitUntil: (p: Promise<unknown>) => void,
+  fn: (db: Db) => Promise<Response>
+): Promise<Response> {
+  if (!env.DATABASE_URL) return fail(503, "No database configured");
+  // fetch_types off: the API uses only built-in types, and it saves a round trip per request.
+  const sql = postgres(env.DATABASE_URL, { max: 1, fetch_types: false, prepare: false, onnotice: () => {} });
+  try {
+    return await fn(wrap(sql));
+  } finally {
+    waitUntil(sql.end());
+  }
+}
 
 export function fail(status: number, error: string): Response {
   return Response.json({ error }, { status });
@@ -43,10 +73,10 @@ export async function familyId(code: string): Promise<string> {
 }
 
 /** The family whose code is in the Authorization header, or a 401 response. */
-export async function family(request: Request, env: Env): Promise<string | Response> {
+export async function family(request: Request, db: Db): Promise<string | Response> {
   const code = cleanCode(request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? "");
   if (!code) return fail(401, "No family code");
   const id = await familyId(code);
-  const row = await env.DB.prepare("SELECT id FROM families WHERE id = ?").bind(id).first();
+  const [row] = await db.query("SELECT id FROM families WHERE id = $1", [id]);
   return row ? id : fail(401, "Unknown family code");
 }

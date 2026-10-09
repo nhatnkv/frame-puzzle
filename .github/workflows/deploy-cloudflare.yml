@@ -2,9 +2,12 @@ name: Deploy to Cloudflare
 
 # Publishes the app and its API to Cloudflare Pages (https://frame-puzzle.pages.dev) whenever the
 # default branch changes; other branches get a preview address. The first run creates the Pages
-# project and the D1 database. One-time setup: add the repository secrets CLOUDFLARE_API_TOKEN
-# (permissions: Account > Cloudflare Pages: Edit, Account > D1: Edit) and CLOUDFLARE_ACCOUNT_ID.
-# Without them this workflow only builds and skips the deploy.
+# project. One-time setup, as repository secrets:
+#   CLOUDFLARE_API_TOKEN   permissions: Account > Cloudflare Pages: Edit
+#   CLOUDFLARE_ACCOUNT_ID
+#   DATABASE_URL           postgres://user:password@host/db?sslmode=require, the family's shared data
+# Without the Cloudflare secrets this workflow only builds; without DATABASE_URL it deploys the app
+# but sharing with the family answers "No database configured".
 on:
   push:
   workflow_dispatch:
@@ -19,7 +22,6 @@ concurrency:
 env:
   WRANGLER: npx --yes wrangler@4.140.0
   PROJECT: frame-puzzle
-  DB_NAME: frame-puzzle
 
 jobs:
   deploy:
@@ -27,6 +29,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -43,21 +46,16 @@ jobs:
           else
             echo "::notice::CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not set; skipping the Cloudflare deploy."
           fi
-      - name: Create the D1 database if needed and point wrangler.toml at it
-        if: steps.ready.outputs.deploy == 'true'
-        run: |
-          id=$($WRANGLER d1 list --json | jq -r --arg n "$DB_NAME" '.[] | select(.name == $n) | .uuid')
-          if [ -z "$id" ]; then
-            $WRANGLER d1 create "$DB_NAME"
-            id=$($WRANGLER d1 list --json | jq -r --arg n "$DB_NAME" '.[] | select(.name == $n) | .uuid')
+          if [ -n "$DATABASE_URL" ]; then
+            echo "database=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::DATABASE_URL is not set; sharing with the family will not work."
           fi
-          test -n "$id"
-          sed -i "s/^database_id = .*/database_id = \"$id\"/" wrangler.toml
+      # Every branch shares the one database, so a preview can be tried before merging. Migrations
+      # only ever add to the schema, and each is applied once.
       - name: Apply database migrations
-        # Every branch shares the one database, so a preview can be tried before merging. Migrations
-        # only ever add to the schema, and D1 applies each one once.
-        if: steps.ready.outputs.deploy == 'true' && hashFiles('migrations/*.sql') != ''
-        run: $WRANGLER d1 migrations apply "$DB_NAME" --remote
+        if: steps.ready.outputs.deploy == 'true' && steps.ready.outputs.database == 'true'
+        run: node scripts/migrate.mjs
       - name: Create the Pages project if needed
         if: steps.ready.outputs.deploy == 'true'
         env:
@@ -66,8 +64,14 @@ jobs:
           if ! $WRANGLER pages project list --json | jq -e --arg n "$PROJECT" '.[] | select(."Project Name" == $n)' > /dev/null; then
             $WRANGLER pages project create "$PROJECT" --production-branch "$PRODUCTION_BRANCH"
           fi
+      - name: Give the API the database address
+        if: steps.ready.outputs.deploy == 'true' && steps.ready.outputs.database == 'true'
+        run: |
+          for env in production preview; do
+            printf '%s' "$DATABASE_URL" | $WRANGLER pages secret put DATABASE_URL --project-name "$PROJECT" --env "$env"
+          done
       - name: Deploy
         if: steps.ready.outputs.deploy == 'true'
         env:
           BRANCH: ${{ github.ref_name }}
-        run: $WRANGLER pages deploy --project-name "$PROJECT" --branch "$BRANCH" --commit-hash "$GITHUB_SHA"
+        run: $WRANGLER pages deploy --project-name "$PROJECT" --branch "$BRANCH" --commit-hash "$GITHUB_SHA" --commit-dirty=true

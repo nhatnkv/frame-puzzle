@@ -1,5 +1,5 @@
 // Sharing with the family: every device keeps the whole database, so the app works without a
-// network, and swaps changed rows with the family's copy on the server (Cloudflare D1, see
+// network, and swaps changed rows with the family's copy on the server (Postgres, see
 // functions/api/sync.ts) whenever it can. The schema's triggers list changed rows in sync_outbox;
 // a sync sends them, then applies every row the server has that this device has not seen yet.
 
@@ -25,6 +25,11 @@ export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 export class FamilyCodeError extends Error {}
 
+/** Where the API is: this site on Cloudflare, or the Cloudflare address from the old GitHub Pages copy. */
+export function apiBase(host = globalThis.location?.hostname ?? ""): string {
+  return host.endsWith("github.io") ? "https://frame-puzzle.pages.dev/api/" : "/api/";
+}
+
 /** The code as people read it: ABCD-EFGH-JKLM. */
 export function formatCode(code: string): string {
   return code.match(/.{1,4}/g)?.join("-") ?? code;
@@ -44,7 +49,7 @@ export class Sync {
     private readonly db: AppDb,
     private readonly files: FileStore,
     private readonly fetcher: Fetch = (url, init) => fetch(url, init),
-    private readonly base = "/api/"
+    private readonly base = apiBase()
   ) {
     this.state = this.code ? "offline" : "off";
     db.onWrite(() => this.code && !this.applying && this.pending() > 0 && this.later(PUSH_DELAY));
@@ -75,7 +80,8 @@ export class Sync {
     this.db.transaction(() => {
       setSetting(this.db, CODE, code);
       setSetting(this.db, REV, "0");
-      // Everything made before sharing goes up too.
+      // Everything made before sharing goes up too, once.
+      this.db.run("DELETE FROM sync_outbox");
       for (const t of SYNCED_TABLES) {
         const own = t === "photos" ? " WHERE file_key NOT LIKE 'builtin:%'" : "";
         this.db.run(`INSERT INTO sync_outbox (tbl, row_id) SELECT '${t}', id FROM ${t}${own} ORDER BY id`);

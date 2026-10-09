@@ -21,6 +21,7 @@
     "vitest": "^5.0.3"
   },
   "dependencies": {
+    "postgres": "^3.4.9",
     "sql.js": "^1.14.2"
   }
 }

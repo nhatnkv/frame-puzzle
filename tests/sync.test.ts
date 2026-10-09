@@ -1,8 +1,8 @@
-import { readFileSync } from "node:fs";
 import initSqlJs from "sql.js";
-import type { SqlJsStatic, SqlValue } from "sql.js";
-import { beforeAll, describe, expect, it } from "vitest";
-import type { D1Database, D1PreparedStatement, Env, PagesFunction } from "../functions/api/_lib";
+import type { SqlJsStatic } from "sql.js";
+import postgres from "postgres";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { Env, PagesFunction } from "../functions/api/_lib";
 import * as families from "../functions/api/families";
 import * as fileApi from "../functions/api/files/[key]";
 import * as syncApi from "../functions/api/sync";
@@ -14,52 +14,29 @@ import { FileStore } from "../src/db/files";
 import { memoryKV } from "../src/db/kv";
 import { FamilyCodeError, formatCode, Sync, type Fetch } from "../src/sync/sync";
 
+// The API runs against a real Postgres: CI starts one, and locally set TEST_DATABASE_URL, e.g.
+// postgres://app@127.0.0.1:54329/postgres. Its tables are emptied before each test.
+const DATABASE_URL = process.env.TEST_DATABASE_URL ?? "";
+
 let SQL: SqlJsStatic;
+const admin = DATABASE_URL ? postgres(DATABASE_URL, { max: 1, onnotice: () => {} }) : null;
 beforeAll(async () => {
   SQL = await initSqlJs();
+  if (!DATABASE_URL) return;
+  // @ts-expect-error a plain JavaScript script
+  const { migrate } = await import("../scripts/migrate.mjs");
+  await migrate(DATABASE_URL);
+});
+beforeEach(async () => {
+  await admin?.unsafe("TRUNCATE files, rows, families");
+});
+afterAll(async () => {
+  await admin?.end();
 });
 
-/** Enough of D1 for the API, on an in-memory SQLite database with the server's migrations. */
-function fakeD1(): D1Database {
-  const sql = new SQL.Database();
-  sql.exec(readFileSync("migrations/0001_family_sync.sql", "utf8"));
-  const toSql = (v: unknown): SqlValue => (v instanceof ArrayBuffer ? new Uint8Array(v) : (v as SqlValue));
-  const stmt = (query: string, values: unknown[] = []): D1PreparedStatement => {
-    const all = <T>() => {
-      const st = sql.prepare(query);
-      st.bind(values.map(toSql));
-      const out: T[] = [];
-      while (st.step()) out.push(st.getAsObject() as T);
-      st.free();
-      return out;
-    };
-    return {
-      bind: (...v) => stmt(query, v),
-      first: async <T>() => all<T>()[0] ?? null,
-      all: async <T>() => ({ results: all<T>() }),
-      run: async () => all()
-    };
-  };
-  return {
-    prepare: (q) => stmt(q),
-    async batch(list) {
-      sql.run("BEGIN");
-      try {
-        const out = [];
-        for (const s of list) out.push(await s.run());
-        sql.run("COMMIT");
-        return out;
-      } catch (e) {
-        sql.run("ROLLBACK");
-        throw e;
-      }
-    }
-  };
-}
-
-/** A server: the API's handlers on a fake D1. `online` false makes every request fail like a lost network. */
+/** A server: the API's handlers on the test database. `online` false makes every request fail like a lost network. */
 function server() {
-  const env: Env = { DB: fakeD1() };
+  const env: Env = { DATABASE_URL };
   const s = { online: true, fetch: null as unknown as Fetch };
   s.fetch = async (url, init) => {
     if (!s.online) throw new TypeError("Failed to fetch");
@@ -74,7 +51,10 @@ function server() {
       params.key = file[1];
       fn = method === "PUT" ? fileApi.onRequestPut : fileApi.onRequestGet;
     }
-    return fn ? fn({ request, env, params }) : new Response(null, { status: 404 });
+    const closing: Array<Promise<unknown>> = [];
+    const res = fn ? await fn({ request, env, params, waitUntil: (p) => closing.push(p) }) : new Response(null, { status: 404 });
+    await Promise.all(closing);
+    return res;
   };
   return s;
 }
@@ -85,7 +65,7 @@ async function device(srv: ReturnType<typeof server>) {
   return { db, files, sync: new Sync(db, files, (u, i) => srv.fetch(u, i)) };
 }
 
-describe("sharing with the family", () => {
+describe.skipIf(!DATABASE_URL)("sharing with the family", () => {
   it("brings a new device everything, pictures included", async () => {
     const srv = server();
     const a = await device(srv);
