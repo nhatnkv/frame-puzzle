@@ -45,8 +45,15 @@ async function pickKid(page: Page, name: string) {
   await expect(page.locator("#s-home")).toBeVisible();
 }
 
+/** Play, then Normal (or Race): the picture and piece count come next. */
+async function openChoose(page: Page, mode: "Normal" | "Race" = "Normal") {
+  await page.click(".home-card[data-go=mode]");
+  await page.click(mode === "Race" ? "#modeRace" : "#modeNormal");
+  await expect(page.locator("#s-choose")).toBeVisible();
+}
+
 async function startPuzzle(page: Page, pieces: number, level?: "Easy" | "Medium" | "Hard" | "Extreme" | "Ultimate") {
-  await page.click(".home-card[data-go=choose]");
+  await openChoose(page);
   // The level first: it decides which piece counts there are.
   if (level) await page.locator(".level-btn", { hasText: level }).click();
   await page.locator(".count-btn", { hasText: new RegExp(`^${pieces}$`) }).click();
@@ -195,7 +202,7 @@ test("at medium, a flipped piece fits any slot, and the picture is done once tap
 
   // The level is remembered for this child.
   await page.click("#s-done [data-go=home]");
-  await page.click(".home-card[data-go=choose]");
+  await openChoose(page);
   await expect(page.locator(".level-btn", { hasText: "Medium" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#rewardPreview")).toHaveText("+24");
 });
@@ -257,11 +264,12 @@ test("at extreme, a piece in the wrong slot or the wrong way round sends every p
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await page.click(".home-card[data-go=choose]");
+  await openChoose(page);
   // Each level says what it does under the buttons.
   await page.locator(".level-btn", { hasText: "Extreme" }).click();
   await expect(page.locator("#levelNote")).toContainText("A mistake sends them all out");
-  await page.click("#s-choose [data-go=home]");
+  await page.click("#s-choose [data-go=mode]");
+  await page.click("#s-mode [data-go=home]");
   await startPuzzle(page, 30, "Extreme");
   const s = await frame(page);
   expect(s.level).toBe("extreme");
@@ -393,7 +401,7 @@ test("at ultimate, losing the last star ends the puzzle and locks ultimate until
   await dragPiece(page, 0, 0);
   await dragPiece(page, 1, 1);
   await page.click("#s-done [data-go=home]");
-  await page.click(".home-card[data-go=choose]");
+  await openChoose(page);
   await expect(page.locator(".level-btn", { hasText: "Ultimate" })).toBeEnabled();
 });
 
@@ -401,7 +409,7 @@ test("extreme and ultimate offer only big puzzles, 30 to 70 pieces, and each lis
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await page.click(".home-card[data-go=choose]");
+  await openChoose(page);
   const counts = () => page.locator(".count-btn").allTextContents();
   const on = page.locator(".count-btn.on");
   expect(await counts()).toEqual(["2", "3", "4", "6", "9", "12", "16", "20", "25", "30", "36", "49"]);
@@ -554,7 +562,7 @@ test("a parent imports a picture and deletes it with two taps; the app's own pic
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await page.click(".home-card[data-go=choose]");
+  await openChoose(page);
   const thumbs = page.locator("#library .thumb-btn");
   await expect(thumbs).toHaveCount(BUILTIN_COUNT);
   await expect(page.locator("#libEdit")).toBeHidden();
@@ -581,7 +589,7 @@ test("pictures can be shown one category at a time, remembered for each child", 
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await page.click(".home-card[data-go=choose]");
+  await openChoose(page);
   const thumbs = page.locator("#library .thumb-btn");
   const menu = page.locator("#categoryMenu");
   await expect(page.locator("#categoryBtn")).toHaveText(new RegExp(`All pictures\\s*\\(${BUILTIN_COUNT}\\)`));
@@ -616,8 +624,9 @@ test("pictures can be shown one category at a time, remembered for each child", 
   });
   expect(inView).toBe(true);
   // Remembered when the child comes back.
-  await page.click("#s-choose [data-go=home]");
-  await page.click(".home-card[data-go=choose]");
+  await page.click("#s-choose [data-go=mode]");
+  await page.click("#s-mode [data-go=home]");
+  await openChoose(page);
   await expect(page.locator("#categoryBtn")).toHaveText(/Landscapes\s*\(10\)/);
   // Everything fits, Start included, with all the pictures: on the smallest iPad and on a wide,
   // short browser window, where the whole screen is scaled up.
@@ -639,7 +648,7 @@ test("the frame takes the shape of a wide photo, so none of it is cut off", asyn
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await page.click(".home-card[data-go=choose]");
+  await openChoose(page);
   await page.setInputFiles("#pickPhoto", await pictureFile(page, "beach.png", "#9EC3E3")); // 800x600
   await expect(page.locator("#library .thumb-btn")).toHaveCount(1);
   await page.locator(".count-btn", { hasText: /^4$/ }).click();
@@ -660,7 +669,7 @@ test("pictures stay sharp when the screen is bigger than the design size", async
   // Canvas pixels per screen pixel; below 1 the browser stretches the canvas and it looks blurry.
   const sharpness = (sel: string) =>
     page.locator(sel).first().evaluate((c: HTMLCanvasElement) => c.width / (c.getBoundingClientRect().width * devicePixelRatio));
-  await page.click(".home-card[data-go=choose]");
+  await openChoose(page);
   await expect.poll(() => sharpness("#preview")).toBeGreaterThan(0.98);
   await page.click("#startBtn");
   await expect(page.locator("#s-play")).toBeVisible();
@@ -692,6 +701,45 @@ test("tapping the small picture shows it big in the middle, and a tap shrinks it
   await expect(page.locator(".ref-card")).toBeVisible();
   await dragPiece(page, 0, 0);
   await expect(page.locator("#progress")).toHaveText("1 / 4");
+});
+
+test("Play offers Normal and Race; when a Race's time runs out the child gets stars for each piece done", async ({ page }) => {
+  await page.clock.install();
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await page.click(".home-card[data-go=mode]");
+  await expect(page.locator("#s-mode")).toBeVisible();
+  await expect(page.locator("#raceMinutes")).toHaveText("5 min");
+  for (let i = 0; i < 3; i++) await page.click("#raceMinus");
+  await expect(page.locator("#raceMinutes")).toHaveText("2 min");
+
+  await page.click("#modeRace");
+  await expect(page.locator("#chooseRace")).toHaveText("Race · 2 min");
+  await page.locator(".level-btn", { hasText: "Easy" }).click();
+  await page.locator(".count-btn", { hasText: /^4$/ }).click();
+  await page.click("#startBtn");
+  await expect(page.locator("#raceTimer")).toBeVisible();
+  await expect(page.locator("#raceClock")).toHaveText("2:00");
+  await dragPiece(page, 0, 0);
+  await page.clock.fastForward("01:55");
+  await expect(page.locator("#raceTimer")).toHaveClass(/low/);
+  await page.clock.fastForward("00:06");
+  // 1 of 4 pieces of an 8 star puzzle: 8 / 4 = 2 stars.
+  await expect(page.locator("#doneTitle")).toHaveText("Time over!");
+  await expect(page.locator("#doneNote")).toHaveText("1 of 4 pieces");
+  await expect(page.locator("#earned")).toHaveText("+2");
+  await expect(page.locator("#s-done .topbar [data-stars]")).toHaveText("2");
+
+  // Normal has no clock, and the time chosen is remembered.
+  await page.click("#s-done [data-go=home]");
+  await page.click(".home-card[data-go=mode]");
+  await expect(page.locator("#raceMinutes")).toHaveText("2 min");
+  await page.click("#modeNormal");
+  await expect(page.locator("#chooseRace")).toBeHidden();
+  await page.click("#startBtn");
+  await expect(page.locator("#s-play")).toBeVisible();
+  await expect(page.locator("#raceTimer")).toBeHidden();
 });
 
 test("the ranking shows every player in General and, once the iPad shares with a family, the family in Family", async ({ page }) => {
