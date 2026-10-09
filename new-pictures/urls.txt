@@ -48,3 +48,13 @@ batch-5/argo-ship https://www.figma.com/api/mcp/asset/d3962d09-fd45-49e4-87f8-cd
 batch-5/athena-parthenon https://www.figma.com/api/mcp/asset/0f9614fe-d7ca-4384-9a8e-10cff76dbfee.png
 batch-5/icarus-flight https://www.figma.com/api/mcp/asset/4b04ea03-ed59-4659-a330-cf5eb96d71d8.png
 batch-5/apollo-sun-chariot https://www.figma.com/api/mcp/asset/8f1197e5-1642-40c5-8399-d2494c45854c.png
+batch-6/t-rex-volcano https://www.figma.com/api/mcp/asset/ee0b27ae-e6dc-4381-9f6b-1418cefbc74b.png
+batch-6/brachiosaurus-lake https://www.figma.com/api/mcp/asset/1e51cd84-cf7b-4f60-bc49-0d1d63facd87.png
+batch-6/triceratops-family https://www.figma.com/api/mcp/asset/6538c1e6-2e65-4d5b-815f-c362e22ca522.png
+batch-6/stegosaurus-forest https://www.figma.com/api/mcp/asset/d29e11e7-4ead-4799-a75a-91fb02673f61.png
+batch-6/pteranodon-cliffs https://www.figma.com/api/mcp/asset/7e98f617-d69f-42eb-acde-3cad3273560a.png
+batch-6/baby-dinosaurs-hatching https://www.figma.com/api/mcp/asset/0c2ef785-b5f1-48d4-b028-254d0f2f0fc1.png
+batch-6/prehistoric-ocean https://www.figma.com/api/mcp/asset/ab4dc621-4d9e-458e-a8d9-e4382e773bd5.png
+batch-6/dino-river-crossing https://www.figma.com/api/mcp/asset/0e8aaa15-30c7-41aa-ba9c-8feb7ba59461.png
+batch-6/ice-age-mammoths https://www.figma.com/api/mcp/asset/3e96113e-88e1-4f7d-8686-340f1b87fb1a.png
+batch-6/dino-museum https://www.figma.com/api/mcp/asset/9b1ab48a-9268-47da-878f-411f18c2b7dd.png
