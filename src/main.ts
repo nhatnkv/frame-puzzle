@@ -9,12 +9,15 @@ import { FileStore } from "./db/files";
 import { idbKV } from "./db/kv";
 import { getKid } from "./data/kids";
 import { Sync } from "./sync/sync";
+import { Players } from "./rank/players";
+import { getSetting } from "./data/settings";
 import { BUILTIN_PICTURES } from "./pictures";
 import { setupChoose } from "./screens/choose";
 import { completePuzzle } from "./screens/done";
 import { setupHome } from "./screens/home";
 import { setupParent } from "./screens/parent";
 import { setupShop } from "./screens/shop";
+import { setupRank } from "./screens/rank";
 import { requireKid, setupLogin } from "./screens/login";
 import { debugState, setupPlay, startPuzzle } from "./screens/play";
 import { byId } from "./ui/dom";
@@ -33,7 +36,9 @@ async function boot(): Promise<void> {
   const db = await AppDb.open(SQL, idbKV("db"));
   const files = new FileStore(idbKV("files"));
   const sync = new Sync(db, files);
-  setApp({ db, files, sync, kid: null });
+  // A device joining a family waits for the family's children before giving any a player key.
+  const players = new Players(db, () => sync.code, () => !sync.code || getSetting(db, "sync.rev", "0") !== "0");
+  setApp({ db, files, sync, players, kid: null });
 
   // Ask iOS to keep this app's data even when storage runs low.
   void navigator.storage?.persist?.();
@@ -56,9 +61,10 @@ async function boot(): Promise<void> {
   setupChoose(startPuzzle);
   setupPlay(completePuzzle);
   setupShop();
+  setupRank();
   setupParent();
 
-  for (const s of ["login", "home", "choose", "play", "done", "shop", "parent"] as const) onEnter(s, () => renderStars());
+  for (const s of ["login", "home", "choose", "play", "done", "shop", "rank", "parent"] as const) onEnter(s, () => renderStars());
   setGuard(requireKid);
   wireNavigation(stage);
 
@@ -80,6 +86,7 @@ async function boot(): Promise<void> {
     else renderStars();
   });
   sync.start();
+  players.start();
 }
 
 boot().catch((e) => {

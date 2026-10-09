@@ -3,6 +3,7 @@
 import type { AppDb } from "./db/database";
 import type { FileStore } from "./db/files";
 import type { Kid } from "./data/kids";
+import type { Players } from "./rank/players";
 import type { Sync } from "./sync/sync";
 import { starTotal } from "./data/stars";
 
@@ -10,6 +11,7 @@ export interface App {
   db: AppDb;
   files: FileStore;
   sync: Sync;
+  players: Players;
   kid: Kid | null;
 }
 

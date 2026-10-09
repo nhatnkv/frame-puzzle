@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -691,6 +692,74 @@ test("tapping the small picture shows it big in the middle, and a tap shrinks it
   await expect(page.locator(".ref-card")).toBeVisible();
   await dragPiece(page, 0, 0);
   await expect(page.locator("#progress")).toHaveText("1 / 4");
+});
+
+test("the ranking shows every player in General and, once the iPad shares with a family, the family in Family", async ({ page }) => {
+  // A stand-in for the API: it keeps the players this iPad sends and answers with a made-up ranking.
+  const sent: Array<{ auth: string | null; body: { players: Array<{ key: string; name: string; stars: number }> } }> = [];
+  let online = false;
+  const id = () => createHash("sha256").update(sent.at(-1)!.body.players[0].key).digest("hex");
+  await page.route("**/api/players", async (route) => {
+    if (!online) return route.abort();
+    sent.push({ auth: route.request().headers().authorization ?? null, body: route.request().postDataJSON() });
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.route("**/api/ranking?*", async (route) => {
+    if (!online) return route.abort();
+    const scope = new URL(route.request().url()).searchParams.get("scope");
+    const bin = { id: id(), name: "Bin", color: 1, stars: 0, puzzles: 0 };
+    const json =
+      scope === "family"
+        ? { players: [{ ...bin, rank: 1 }], me: [{ ...bin, rank: 1 }] }
+        : {
+            players: [
+              { id: "a".repeat(64), name: "Khoa", color: 2, stars: 980, puzzles: 40, rank: 1 },
+              { id: "b".repeat(64), name: "Mai", color: 3, stars: 640, puzzles: 1, rank: 2 }
+            ],
+            me: [{ ...bin, rank: 7 }]
+          };
+    await route.fulfill({ json });
+  });
+  await page.route("**/api/families", (route) => route.fulfill({ json: { code: "ABCDEFGHJKLM" } }));
+  await page.route("**/api/sync", (route) => route.fulfill({ json: { rev: 1, rows: [], more: false } }));
+
+  await open(page);
+  await addKid(page, "Bin");
+  await pickKid(page, "Bin");
+  await page.click(".home-card[data-go=rank]");
+  await expect(page.locator("#s-rank")).toBeVisible();
+  // Offline: a note and a way to try again.
+  await expect(page.locator("#rankList")).toContainText("needs the internet");
+  await expect(page.locator("#rankFamily")).toBeHidden();
+
+  online = true;
+  await page.click("#rankRetry");
+  const rows = page.locator("#rankList .rank-row");
+  await expect(rows).toHaveCount(3);
+  await expect(page.locator("#rankGeneral")).toHaveClass(/on/);
+  await expect(rows.nth(0)).toContainText("Khoa");
+  await expect(rows.nth(0)).toContainText("40 puzzles");
+  // The child who is playing, below the top, after a gap.
+  await expect(page.locator("#rankList .rank-gap")).toBeVisible();
+  await expect(rows.nth(2)).toHaveClass(/me/);
+  await expect(rows.nth(2)).toContainText("7");
+  expect(sent[0].auth).toBeNull();
+  expect(sent[0].body.players.map((p) => [p.name, p.stars])).toEqual([["Bin", 0]]);
+
+  // Sharing with a family brings the Family tab, and Bin's player joins the family.
+  await page.click("#s-rank [data-go=home]");
+  await page.click("#parentBtn");
+  await page.getByRole("button", { name: "Start sharing" }).click();
+  await expect(page.locator("#familyCode")).toHaveText("ABCD-EFGH-JKLM");
+  await page.click("#s-parent [data-go=home]");
+  await page.click(".home-card[data-go=rank]");
+  await expect(page.locator("#rankFamily")).toBeVisible();
+  await page.click("#rankFamily");
+  await expect(page.locator("#rankFamily")).toHaveClass(/on/);
+  await expect(rows).toHaveCount(1);
+  await expect(rows.nth(0)).toContainText("Bin");
+  await expect(rows.nth(0)).toHaveClass(/me/);
+  expect(sent.at(-1)!.auth).toBe("Bearer ABCDEFGHJKLM");
 });
 
 test("works offline after the first visit", async ({ page, context, browserName }) => {

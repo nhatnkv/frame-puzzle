@@ -62,8 +62,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .home-center { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 52px; padding-bottom: 60px; }
 .logo { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .logo h1 { margin: 0; font-size: 64px; font-weight: 800; }
-.home-cards { display: flex; gap: 40px; }
-.home-card { width: 340px; height: 280px; border-radius: 40px; border: 2px solid var(--line); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; font-size: 40px; font-weight: 800; }
+.home-cards { display: flex; gap: 36px; }
+.home-card { width: 320px; height: 280px; border-radius: 40px; border: 2px solid var(--line); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; font-size: 40px; font-weight: 800; }
 .home-card .bubble { width: 140px; height: 140px; border-radius: 70px; display: flex; align-items: center; justify-content: center; }
 .home-card .bubble svg { width: 76px; height: 76px; }
 .home-card:active { transform: scale(0.98); }
@@ -161,6 +161,27 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .done-actions { display: flex; flex-direction: column; gap: 16px; width: 320px; }
 
 /* Shop */
+/* Ranking: General (every player) and Family tabs, then one row per player. */
+.rank-tabs { display: flex; gap: 6px; padding: 6px; border-radius: 999px; background: var(--surface); border: 2px solid var(--line); }
+.rank-tab { height: 52px; min-width: 150px; padding: 0 24px; border-radius: 26px; border: none; background: none; font-size: 22px; font-weight: 800; color: var(--muted); }
+.rank-tab.on { background: var(--primary); color: var(--primary-ink); }
+.rank-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 2px 4px 12px; }
+.rank-row { display: flex; align-items: center; gap: 20px; min-height: 84px; padding: 8px 24px 8px 16px; border-radius: 28px; background: var(--surface); border: 2px solid var(--line); flex-shrink: 0; }
+.rank-row.me { border-color: var(--primary); background: var(--primary-soft); }
+/* The child who is playing, below the top: always in sight at the bottom of the list. */
+.rank-row.pinned { position: sticky; bottom: 0; box-shadow: 0 -8px 16px var(--bg); }
+.rank-row .place { width: 64px; text-align: center; font-size: 30px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rank-row .place.p1 { color: #C98E22; }
+.rank-row .place.p2 { color: #8C939B; }
+.rank-row .place.p3 { color: #B07A4F; }
+.rank-row .avatar { width: 60px; height: 60px; font-size: 28px; border-width: 3px; }
+.rank-row .who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 26px; font-weight: 800; }
+.rank-row .who small { font-size: 16px; font-weight: 700; color: var(--muted); }
+.rank-row .stars { padding: 6px 18px 6px 12px; font-size: 24px; }
+.rank-row .stars svg { width: 24px; height: 24px; }
+.rank-gap { text-align: center; font-size: 26px; font-weight: 800; color: var(--muted); line-height: 1; }
+.rank-empty { margin: auto; text-align: center; font-size: 26px; font-weight: 700; color: var(--muted); max-width: 640px; }
+
 .shop-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; }
 .gift { border-radius: 28px; background: var(--surface); border: 2px solid var(--line); padding: 14px 14px 18px; display: flex; flex-direction: column; gap: 12px; text-align: left; }
 .gift .pic { aspect-ratio: 1; max-width: 100%; border-radius: 18px; overflow: hidden; background: var(--star-soft); display: flex; align-items: center; justify-content: center; }

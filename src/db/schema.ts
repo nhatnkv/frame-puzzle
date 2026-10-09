@@ -96,7 +96,10 @@ export const MIGRATIONS: string[][] = [
           END`;
       })
     )
-  ]
+  ],
+  // v4: each child is a player in the rankings (src/rank/players.ts). The key is the player's
+  // secret on the server; it is shared with the family like the rest of the child's row.
+  [`ALTER TABLE kids ADD COLUMN player_key TEXT`]
 ];
 
 /** Every column that holds a key into the files store, used to find unreferenced files. */
