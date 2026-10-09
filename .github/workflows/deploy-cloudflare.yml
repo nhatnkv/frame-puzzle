@@ -1,8 +1,9 @@
 name: Deploy to Cloudflare
 
-# Publishes the app and its API to Cloudflare Pages (https://frame-puzzle.pages.dev) whenever the
-# default branch changes; other branches get a preview address. The first run creates the Pages
-# project. One-time setup, as repository secrets:
+# Publishes the app and its API to Cloudflare Pages (https://frame-puzzle.pages.dev) when the
+# release branch changes. Work is merged into develop, which deploys nothing; a pull request from
+# develop into release ships it. Run by hand from the Actions tab, any other branch gets a preview
+# address. The first run creates the Pages project. One-time setup, as repository secrets:
 #   CLOUDFLARE_API_TOKEN   permissions: Account > Cloudflare Pages: Edit (and Hyperdrive: Edit, optional)
 #   CLOUDFLARE_ACCOUNT_ID
 #   DATABASE_URL           postgres://user:password@host/db?sslmode=require, the family's shared data
@@ -10,6 +11,7 @@ name: Deploy to Cloudflare
 # but sharing with the family answers "No database configured".
 on:
   push:
+    branches: [release]
   workflow_dispatch:
 
 permissions:
@@ -58,12 +60,18 @@ jobs:
         run: node scripts/migrate.mjs
       - name: Create the Pages project if needed
         if: steps.ready.outputs.deploy == 'true'
-        env:
-          PRODUCTION_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           if ! $WRANGLER pages project list --json | jq -e --arg n "$PROJECT" '.[] | select(."Project Name" == $n)' > /dev/null; then
-            $WRANGLER pages project create "$PROJECT" --production-branch "$PRODUCTION_BRANCH"
+            $WRANGLER pages project create "$PROJECT" --production-branch release
           fi
+      # A deploy from release goes to https://frame-puzzle.pages.dev only while release is the
+      # project's production branch (the project was first made with another one).
+      - name: Make release the production branch
+        if: steps.ready.outputs.deploy == 'true' && github.ref_name == 'release'
+        run: |
+          curl -fsS -X PATCH -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT" \
+            --data '{"production_branch":"release"}' | jq -e '.result.production_branch == "release"' > /dev/null
       - name: Give the API the database address
         if: steps.ready.outputs.deploy == 'true' && steps.ready.outputs.database == 'true'
         run: |

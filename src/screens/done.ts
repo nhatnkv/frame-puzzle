@@ -3,12 +3,13 @@
 
 import { currentKid, getApp } from "../app";
 import { soundOn } from "../data/settings";
-import { recordPuzzle, starTotal } from "../data/stars";
+import { addStars, recordPuzzle, starsFor, starTotal } from "../data/stars";
+import { raceStars } from "../puzzle/race";
 import { byId } from "../ui/dom";
 import { current, go } from "../ui/nav";
 import { doneSound, tone } from "../ui/sound";
 import { canvasScale, stageScale } from "../ui/stage";
-import type { Solved } from "./play";
+import type { Solved, TimeOver } from "./play";
 
 const MAX = 460;
 const SETTLE_MS = 700;
@@ -36,6 +37,23 @@ export function completePuzzle(s: Solved): void {
   }, SETTLE_MS);
 }
 
+/**
+ * Race mode, time is up: stars for each piece done, a full picture's stars shared out over its
+ * pieces and rounded up. They count in the rankings like any puzzle's stars, but the picture is not
+ * counted as finished.
+ */
+export function timeOver(s: TimeOver): void {
+  const { db } = getApp();
+  const earned = raceStars(starsFor(s.pieces, s.level), s.done, s.pieces);
+  if (earned) addStars(db, currentKid().id, earned, "puzzle");
+  void db.flush();
+  tone(392, 0.25, 0, 0.08);
+  tone(330, 0.35, 0.22, 0.08);
+  setTimeout(() => {
+    if (current() === "play") showDone(s, earned, `${s.done} of ${s.pieces} pieces`);
+  }, SETTLE_MS);
+}
+
 function sayWellDone(): void {
   if (!soundOn(getApp().db) || !("speechSynthesis" in window)) return;
   try {
@@ -50,7 +68,12 @@ function sayWellDone(): void {
   }
 }
 
-function showDone(s: Solved, earned: number): void {
+/** With `note`, the Race's "Time over!" with how many pieces were done; otherwise "Well done!". */
+function showDone(s: Solved, earned: number, note?: string): void {
+  byId("doneTitle").textContent = note ? "Time over!" : "Well done!";
+  const noteEl = byId("doneNote");
+  noteEl.hidden = !note;
+  noteEl.textContent = note ?? "";
   const cv = byId<HTMLCanvasElement>("doneCanvas");
   const dpr = canvasScale();
   const k = Math.min(MAX / s.art.width, MAX / s.art.height);
@@ -65,10 +88,10 @@ function showDone(s: Solved, earned: number): void {
   x.drawImage(s.art, 0, 0, cv.width, cv.height);
   byId("earned").textContent = `+${earned}`;
   go("done");
-  celebrate(earned);
+  celebrate(earned, !note);
 }
 
-function celebrate(earned: number): void {
+function celebrate(earned: number, party: boolean): void {
   const sec = byId("s-done");
   sec.classList.remove("play");
   void sec.offsetWidth;
@@ -80,8 +103,8 @@ function celebrate(earned: number): void {
     return;
   }
   counter.textContent = String(total - earned);
-  confetti(sec);
-  flyStars(sec, earned, total);
+  if (party) confetti(sec);
+  if (earned) flyStars(sec, earned, total);
 }
 
 function confetti(sec: HTMLElement): void {

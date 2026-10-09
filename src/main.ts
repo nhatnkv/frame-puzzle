@@ -13,7 +13,8 @@ import { Players } from "./rank/players";
 import { getSetting } from "./data/settings";
 import { BUILTIN_PICTURES } from "./pictures";
 import { setupChoose } from "./screens/choose";
-import { completePuzzle } from "./screens/done";
+import { completePuzzle, timeOver } from "./screens/done";
+import { playMode, raceMinutes, setupMode } from "./screens/mode";
 import { setupHome } from "./screens/home";
 import { setupParent } from "./screens/parent";
 import { setupShop } from "./screens/shop";
@@ -60,13 +61,14 @@ async function boot(): Promise<void> {
   });
   setupFamily();
   setupHome();
-  setupChoose(startPuzzle);
-  setupPlay(completePuzzle);
+  setupMode();
+  setupChoose((id, count, img, level) => startPuzzle(id, count, img, level, playMode() === "race" ? raceMinutes() : null));
+  setupPlay(completePuzzle, timeOver);
   setupShop();
   setupRank();
   setupParent();
 
-  for (const s of ["login", "home", "choose", "play", "done", "shop", "rank", "parent"] as const) onEnter(s, () => renderStars());
+  for (const s of ["login", "home", "mode", "choose", "play", "done", "shop", "rank", "parent"] as const) onEnter(s, () => renderStars());
   setGuard(requireKid);
   wireNavigation(stage);
 

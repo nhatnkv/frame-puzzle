@@ -1,13 +1,11 @@
 name: CI
 
-# Runs once per change: on pull requests, and on pushes to the default branch (a push to a PR's
-# branch is covered by its pull_request run). A newer push cancels the run it replaces. One job
+# Runs on pull requests (into develop, and from develop into release), once per push to them; a
+# newer push cancels the run it replaces. Merging runs nothing more. One job
 # does everything, so the setup (checkout, npm ci) is paid for once: Actions minutes are limited
 # while the repository is private.
 on:
   pull_request:
-  push:
-    branches: [claude/ios-frame-puzzle-mvp-pdpzm1]
   workflow_dispatch:
 
 concurrency:

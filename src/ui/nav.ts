@@ -1,8 +1,8 @@
 // One <section class="screen" id="s-NAME"> per screen; exactly one is visible at a time.
 
-export type ScreenName = "login" | "home" | "choose" | "play" | "done" | "shop" | "rank" | "parent";
+export type ScreenName = "login" | "home" | "mode" | "choose" | "play" | "done" | "shop" | "rank" | "parent";
 
-const SCREENS: ScreenName[] = ["login", "home", "choose", "play", "done", "shop", "rank", "parent"];
+const SCREENS: ScreenName[] = ["login", "home", "mode", "choose", "play", "done", "shop", "rank", "parent"];
 
 type Hook = (name: ScreenName) => void;
 const enterHooks = new Map<ScreenName, Hook[]>();
