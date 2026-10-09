@@ -51,6 +51,7 @@
     <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 2.5c.6 3.6 6 6.4 6 11.5a6 6 0 0 1-12 0c0-2.6 1.2-4.6 3-6 0 2 .9 3.3 2.3 3.8C10.6 9 10.6 5.6 12 2.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z" fill="currentColor"/></symbol>
     <symbol id="i-trophy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></g></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M10 2h4"/></g></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
@@ -118,7 +119,7 @@
           <h1>Frame Puzzle</h1>
         </div>
         <div class="home-cards">
-          <button class="home-card" type="button" data-go="choose">
+          <button class="home-card" type="button" data-go="mode">
             <span class="bubble" style="background: var(--primary-soft); color: var(--primary)"><svg><use href="#i-puzzle"/></svg></span>
             Play
           </button>
@@ -134,12 +135,43 @@
       </div>
     </section>
 
+    <!-- 1b. Normal or Race -->
+    <section class="screen" id="s-mode" aria-label="How to play" hidden>
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="round-btn" type="button" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+          <h2 class="title">How to play?</h2>
+        </div>
+        <div class="stars"><svg><use href="#i-star"/></svg><span data-stars>0</span></div>
+      </div>
+      <div class="mode-cards">
+        <button class="home-card mode-card" type="button" id="modeNormal">
+          <span class="bubble" style="background: var(--primary-soft); color: var(--primary)"><svg><use href="#i-puzzle"/></svg></span>
+          Normal
+          <small>No timer</small>
+        </button>
+        <div class="mode-race">
+          <button class="home-card mode-card" type="button" id="modeRace">
+            <span class="bubble" style="background: #F8E1DC; color: var(--danger)"><svg><use href="#i-clock"/></svg></span>
+            Race
+            <small>Finish before the time is up</small>
+          </button>
+          <div class="stepper race-time" aria-label="Race time">
+            <button class="icon-btn" type="button" id="raceMinus" aria-label="1 minute less"><svg><use href="#i-minus"/></svg></button>
+            <output id="raceMinutes">5 min</output>
+            <button class="icon-btn" type="button" id="racePlus" aria-label="1 minute more"><svg><use href="#i-plus"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 2. Choose picture and count -->
     <section class="screen" id="s-choose" aria-label="Choose a picture" hidden>
       <div class="topbar">
         <div class="topbar-left">
-          <button class="round-btn" type="button" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+          <button class="round-btn" type="button" data-go="mode" aria-label="Back"><svg><use href="#i-back"/></svg></button>
           <h2 class="title">Choose a picture</h2>
+          <span class="race-chip" id="chooseRace" hidden><svg><use href="#i-clock"/></svg><span id="chooseRaceText"></span></span>
         </div>
         <div class="stars"><svg><use href="#i-star"/></svg><span data-stars>0</span></div>
       </div>
@@ -184,6 +216,7 @@
             <svg class="ring" viewBox="0 0 76 76" aria-hidden="true"><circle cx="38" cy="38" r="36"/></svg>
           </button>
           <div class="stars small" id="playStars"><svg><use href="#i-star"/></svg><span data-stars>0</span></div>
+          <div class="race-chip timer" id="raceTimer" role="timer" aria-label="Time left" hidden><svg><use href="#i-clock"/></svg><span id="raceClock">5:00</span></div>
         </div>
         <div class="progress"><svg style="color: var(--primary)"><use href="#i-puzzle"/></svg><span id="progress">0 / 4</span></div>
         <div class="hint-wrap" id="hintWrap">
@@ -205,7 +238,8 @@
       <div class="done-body">
         <div class="done-frame"><canvas id="doneCanvas" width="460" height="460"></canvas><span class="shine"></span></div>
         <div class="done-side">
-          <h2>Well done!</h2>
+          <h2 id="doneTitle">Well done!</h2>
+          <p class="done-note" id="doneNote" hidden></p>
           <div class="earn"><svg><use href="#i-star"/></svg><span id="earned">+8</span></div>
           <div class="done-actions">
             <button class="btn btn-primary" type="button" data-go="choose" id="againBtn"><svg><use href="#i-play"/></svg>Play again</button>

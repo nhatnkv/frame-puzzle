@@ -64,6 +64,19 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .logo h1 { margin: 0; font-size: 64px; font-weight: 800; }
 .home-cards { display: flex; gap: 36px; }
 .home-card { width: 320px; height: 280px; border-radius: 40px; border: 2px solid var(--line); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; font-size: 40px; font-weight: 800; }
+/* Normal or Race, after Play. */
+.mode-cards { flex: 1; display: flex; align-items: center; justify-content: center; gap: 48px; }
+.mode-race { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.mode-card { width: 360px; height: 330px; gap: 14px; }
+.mode-card small { font-size: 20px; font-weight: 700; color: var(--muted); }
+.mode-cards > .mode-card { margin-bottom: 94px; }
+.race-time { padding: 6px; border-radius: 999px; background: var(--surface); border: 2px solid var(--line); }
+.race-time .icon-btn { width: 60px; height: 60px; border-radius: 30px; }
+.race-time output { min-width: 110px; font-size: 26px; }
+.race-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px 8px 14px; border-radius: 999px; background: #F8E1DC; color: var(--danger); font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.race-chip svg { width: 24px; height: 24px; }
+.race-chip.timer.low { background: var(--danger); color: #FFFFFF; }
+.done-note { margin: -12px 0 0; font-size: 28px; font-weight: 700; color: var(--muted); }
 .home-card .bubble { width: 140px; height: 140px; border-radius: 70px; display: flex; align-items: center; justify-content: center; }
 .home-card .bubble svg { width: 76px; height: 76px; }
 .home-card:active { transform: scale(0.98); }

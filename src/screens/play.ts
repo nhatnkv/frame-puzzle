@@ -4,12 +4,14 @@
 // From Hard up, pieces are two grid cells long, lying or standing, and fit only slots of their shape.
 // At Extreme and Ultimate, a piece in the wrong slot or the wrong way round sends every piece in
 // the frame back out; at Ultimate it also costs stars, shown beside the close button.
+// In Race mode a clock beside the stars counts down; when it reaches 0 the puzzle ends (src/puzzle/race.ts).
 
 import { currentKid, getApp, renderStars } from "../app";
 import { chargeStars, starTotal } from "../data/stars";
 import { deal, dealOrder, drop, isCorrect, isFull, isSolved, lift, piecesOnBoard, scatter, slotAt, type BoardState, type Loc } from "../puzzle/board";
 import { cropRect, dominoes, gridPieces, makeEdges, outlinePath, pieceOutline, rng, shapeFor, type Block, type Edges, type PieceCount } from "../puzzle/geometry";
 import { FRAME_BORDER, layoutWithReference, pieceMargin, REF_PAD, type Layout, type Rect } from "../puzzle/layout";
+import { clock } from "../puzzle/race";
 import { costsStars, DEFAULT_LEVEL, dealPoses, facesRight, hintCostsStars, hintLimit, hintPercent, mixesShapes, poseExtent, poseStyle, rightPose, scattersOnMistake, turns, unturn, type Level } from "../puzzle/levels";
 import { byId, h, icon } from "../ui/dom";
 import { HEAT } from "../ui/heat";
@@ -32,6 +34,8 @@ const REFERENCE = { top: 16 - TOP_BAR, right: 36, max: 180 };
 const ZOOM_MARGIN = 56;
 const ZOOM_PAD = 12;
 const ZOOM_MS = 280;
+/** In Race mode the clock turns red for the last seconds. */
+const LOW_MS = 10_000;
 
 export interface Solved {
   photoId: number;
@@ -39,6 +43,11 @@ export interface Solved {
   level: Level;
   /** The whole picture, in the puzzle's shape. */
   art: HTMLCanvasElement;
+}
+
+/** A Race puzzle whose time ran out: how many pieces were done. */
+export interface TimeOver extends Solved {
+  done: number;
 }
 
 interface Piece {
@@ -85,6 +94,8 @@ interface Game {
   /** While pieces jump out after a mistake; nothing can be picked up until they land. */
   busy: boolean;
   finished: boolean;
+  /** Race mode: when time runs out (Date.now() ms); null in Normal mode. */
+  deadline: number | null;
   /** Playfield size the layout was made for. */
   W: number;
   H: number;
@@ -108,6 +119,7 @@ let drag: Drag | null = null;
 /** The reference picture shown big in the middle of the screen, while it is open. */
 let zoom: HTMLElement | null = null;
 let onSolved: (s: Solved) => void = () => {};
+let onTimeOver: (s: TimeOver) => void = () => {};
 
 const field = () => byId("playfield");
 const stars = () => starTotal(getApp().db, currentKid().id);
@@ -116,8 +128,14 @@ const fieldSize = () => {
   return { W: s.width, H: s.height - TOP_BAR };
 };
 
-/** Starts a new puzzle from a picture. */
-export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageElement, level: Level = DEFAULT_LEVEL): void {
+/** Starts a new puzzle from a picture; with `raceMinutes`, a Race against the clock. */
+export function startPuzzle(
+  photoId: number,
+  count: PieceCount,
+  img: HTMLImageElement,
+  level: Level = DEFAULT_LEVEL,
+  raceMinutes: number | null = null
+): void {
   const mixed = mixesShapes(level);
   const { rows, cols, pieceAspect } = shapeFor(count, img.width / img.height, mixed);
   const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) | 0;
@@ -151,11 +169,41 @@ export function startPuzzle(photoId: number, count: PieceCount, img: HTMLImageEl
     hintsUsed: 0,
     busy: false,
     finished: false,
+    deadline: raceMinutes ? Date.now() + raceMinutes * 60_000 : null,
     W,
     H
   };
   hideToast();
   build(game);
+  startClock(game);
+}
+
+/** Race mode: counts down beside the stars, and ends the puzzle when time runs out. */
+function startClock(g: Game): void {
+  const pill = byId("raceTimer");
+  pill.hidden = g.deadline === null;
+  pill.classList.remove("low");
+  if (g.deadline === null) return;
+  const tick = () => {
+    if (game !== g || g.finished) return clearInterval(timer);
+    const left = g.deadline! - Date.now();
+    byId("raceClock").textContent = clock(left);
+    pill.classList.toggle("low", left <= LOW_MS);
+    if (left <= 0) {
+      clearInterval(timer);
+      timeUp(g);
+    }
+  };
+  const timer = setInterval(tick, 250);
+  tick();
+}
+
+function timeUp(g: Game): void {
+  g.finished = true;
+  hideToast();
+  closeZoom(false);
+  const done = g.pieces.filter((p) => pieceDone(g, p.index)).length;
+  onTimeOver({ photoId: g.photoId, pieces: g.pieces.length, level: g.level, art: g.art, done });
 }
 
 /** Creates the frame, the slot outlines and the piece canvases for the current layout. */
@@ -409,6 +457,8 @@ function onUp(e: PointerEvent): void {
   const cell = slotFor(g, p.index, cx, cy);
   const moves = drop(g.st, p.index, from, { cell, x: cx, y: cy }, g.L.cells);
   for (const mv of moves) moveTo(g, g.pieces[mv.piece], mv.to, true);
+  // Time ran out while the piece was held.
+  if (g.finished) return;
   // At Extreme and Ultimate every piece in the frame is already right, so a tap there turns nothing.
   const strict = scattersOnMistake(g.level);
   if (tap && g.level !== "easy" && !(strict && cell !== null)) turnPiece(g, p);
@@ -719,8 +769,9 @@ function setupExit(): void {
   for (const ev of ["pointerup", "pointerleave", "pointercancel"]) btn.addEventListener(ev, end);
 }
 
-export function setupPlay(solved: (s: Solved) => void): void {
+export function setupPlay(solved: (s: Solved) => void, timeOver: (s: TimeOver) => void): void {
   onSolved = solved;
+  onTimeOver = timeOver;
   const pf = field();
   pf.addEventListener("pointerdown", onDown);
   pf.addEventListener("pointermove", onMove);
@@ -753,6 +804,7 @@ export function debugState() {
     slots: g.blocks.map((_, i) => slotRect(g, i)),
     loc: g.st.loc,
     level: g.level,
+    deadline: g.deadline,
     poses: g.poses,
     zoomed: zoom !== null,
     ref: g.ref,

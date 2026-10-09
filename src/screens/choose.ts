@@ -12,6 +12,7 @@ import { byId, h, icon, twoTapDelete } from "../ui/dom";
 import { HEAT } from "../ui/heat";
 import { canvasToJpeg, downscale, loadImageFile, loadImageUrl, onFilePicked } from "../ui/images";
 import { current, onEnter } from "../ui/nav";
+import { playMode, raceMinutes } from "./mode";
 import { canvasScale } from "../ui/stage";
 
 const PREVIEW = 440;
@@ -244,6 +245,9 @@ function render(): void {
   note.textContent = LEVEL_UI[level].note;
   note.style.color = HEAT[LEVELS.indexOf(level)];
   byId("rewardPreview").textContent = `+${starsFor(count(), level)}`;
+  const race = playMode() === "race";
+  byId("chooseRace").hidden = !race;
+  if (race) byId("chooseRaceText").textContent = `Race · ${raceMinutes()} min`;
 
   const cv = byId<HTMLCanvasElement>("preview");
   if (!photoId) {
