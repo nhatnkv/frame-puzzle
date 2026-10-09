@@ -67,9 +67,19 @@
     <section class="screen" id="s-login" aria-label="Who is playing" hidden>
       <div class="topbar">
         <div class="topbar-left"><h2 class="title">Who is playing?</h2></div>
-        <button class="text-btn" type="button" id="kidEdit">Edit</button>
+        <div class="login-tools">
+          <button class="btn btn-secondary btn-small" type="button" id="familyBtn"><svg><use href="#i-people"/></svg><span id="familyBtnText">Family</span></button>
+          <button class="text-btn" type="button" id="kidEdit">Edit</button>
+        </div>
       </div>
       <div class="kids" id="kidList"></div>
+      <div class="overlay" id="familyWrap" hidden>
+        <div class="sheet family-sheet" role="dialog" aria-modal="true" aria-labelledby="familyTitle">
+          <h3 id="familyTitle">Family</h3>
+          <div class="share" id="shareBox"></div>
+          <div class="actions"><button class="btn btn-primary" type="button" id="familyDone">Done</button></div>
+        </div>
+      </div>
       <p class="login-hint" id="loginHint" hidden>Parents: tap "Add child" to create a profile.</p>
       <div class="overlay" id="kidFormWrap" hidden>
         <form class="sheet kid-sheet" id="kidForm" role="dialog" aria-modal="true" aria-labelledby="kidFormTitle">
@@ -305,7 +315,6 @@
             <b id="soundLabel">Sound</b>
             <button class="toggle" type="button" role="switch" id="soundToggle" aria-labelledby="soundLabel" aria-checked="true"></button>
           </div>
-          <div class="share" id="shareBox"></div>
         </div>
       </div>
     </section>

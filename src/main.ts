@@ -17,6 +17,7 @@ import { completePuzzle } from "./screens/done";
 import { setupHome } from "./screens/home";
 import { setupParent } from "./screens/parent";
 import { setupShop } from "./screens/shop";
+import { setupFamily } from "./screens/family";
 import { setupRank } from "./screens/rank";
 import { requireKid, setupLogin } from "./screens/login";
 import { debugState, setupPlay, startPuzzle } from "./screens/play";
@@ -57,6 +58,7 @@ async function boot(): Promise<void> {
     getApp().kid = kid;
     go("home");
   });
+  setupFamily();
   setupHome();
   setupChoose(startPuzzle);
   setupPlay(completePuzzle);

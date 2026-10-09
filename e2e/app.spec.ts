@@ -747,11 +747,16 @@ test("the ranking shows every player in General and, once the iPad shares with a
   expect(sent[0].body.players.map((p) => [p.name, p.stars])).toEqual([["Bin", 0]]);
 
   // Sharing with a family brings the Family tab, and Bin's player joins the family.
+  // Sharing starts from "Who is playing?".
   await page.click("#s-rank [data-go=home]");
-  await page.click("#parentBtn");
+  await page.click("#kidChip");
+  await expect(page.locator("#familyBtn")).toHaveText("Family");
+  await page.click("#familyBtn");
   await page.getByRole("button", { name: "Start sharing" }).click();
   await expect(page.locator("#familyCode")).toHaveText("ABCD-EFGH-JKLM");
-  await page.click("#s-parent [data-go=home]");
+  await page.click("#familyDone");
+  await expect(page.locator("#familyBtn")).toHaveText("Family: on");
+  await pickKid(page, "Bin");
   await page.click(".home-card[data-go=rank]");
   await expect(page.locator("#rankFamily")).toBeVisible();
   await page.click("#rankFamily");

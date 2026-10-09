@@ -286,6 +286,10 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .toggle[aria-checked="true"] { background: var(--ok); }
 .toggle[aria-checked="true"]::after { left: 34px; }
 .note { font-size: 15px; color: var(--muted); font-weight: 600; }
+.login-tools { display: flex; align-items: center; gap: 18px; }
+.family-sheet { width: 600px; align-items: stretch; text-align: left; }
+.family-sheet h3 { text-align: center; }
+.family-sheet .share-row b { font-size: 22px; }
 .share { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 20px; background: var(--bg); flex-shrink: 0; }
 .share .note { margin: 0; }
 .share-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
