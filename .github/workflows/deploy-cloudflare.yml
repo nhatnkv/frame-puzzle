@@ -54,7 +54,9 @@ jobs:
           test -n "$id"
           sed -i "s/^database_id = .*/database_id = \"$id\"/" wrangler.toml
       - name: Apply database migrations
-        if: steps.ready.outputs.deploy == 'true' && github.ref_name == github.event.repository.default_branch && hashFiles('migrations/*.sql') != ''
+        # Every branch shares the one database, so a preview can be tried before merging. Migrations
+        # only ever add to the schema, and D1 applies each one once.
+        if: steps.ready.outputs.deploy == 'true' && hashFiles('migrations/*.sql') != ''
         run: $WRANGLER d1 migrations apply "$DB_NAME" --remote
       - name: Create the Pages project if needed
         if: steps.ready.outputs.deploy == 'true'
