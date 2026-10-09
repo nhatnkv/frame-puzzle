@@ -36,8 +36,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # Tests run in CI; the deploy only builds.
       - run: npm ci
-      - run: npm test
       - run: npm run build
       - id: ready
         run: |

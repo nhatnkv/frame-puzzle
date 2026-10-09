@@ -5,6 +5,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Env, PagesFunction } from "../functions/api/_lib";
 import * as families from "../functions/api/families";
 import * as fileApi from "../functions/api/files/[key]";
+import * as playersApi from "../functions/api/players";
+import * as rankingApi from "../functions/api/ranking";
 import * as syncApi from "../functions/api/sync";
 import { addKid, deleteKid, listKids, updateKid } from "../src/data/kids";
 import { addPhoto, listPhotos } from "../src/data/photos";
@@ -12,6 +14,7 @@ import { addStars, recordPuzzle, starTotal } from "../src/data/stars";
 import { AppDb } from "../src/db/database";
 import { FileStore } from "../src/db/files";
 import { memoryKV } from "../src/db/kv";
+import { localPlayers, playerId, Players } from "../src/rank/players";
 import { FamilyCodeError, formatCode, Sync, type Fetch } from "../src/sync/sync";
 
 // The API runs against a real Postgres: CI starts one, and locally set TEST_DATABASE_URL, e.g.
@@ -28,7 +31,7 @@ beforeAll(async () => {
   await migrate(DATABASE_URL);
 });
 beforeEach(async () => {
-  await admin?.unsafe("TRUNCATE files, rows, families");
+  await admin?.unsafe("TRUNCATE players, files, rows, families");
 });
 afterAll(async () => {
   await admin?.end();
@@ -45,7 +48,10 @@ function server() {
     let fn: PagesFunction | undefined;
     const params: Record<string, string> = {};
     const file = url.match(/^\/api\/files\/(.+)$/);
+    const path = url.split("?")[0];
     if (url === "/api/families" && method === "POST") fn = families.onRequestPost;
+    else if (path === "/api/players" && method === "PUT") fn = playersApi.onRequestPut;
+    else if (path === "/api/ranking" && method === "GET") fn = rankingApi.onRequestGet;
     else if (url === "/api/sync" && method === "POST") fn = syncApi.onRequestPost;
     else if (file) {
       params.key = file[1];
@@ -62,7 +68,9 @@ function server() {
 async function device(srv: ReturnType<typeof server>) {
   const db = await AppDb.open(SQL, memoryKV(), { saveDelay: 0 });
   const files = new FileStore(memoryKV());
-  return { db, files, sync: new Sync(db, files, (u, i) => srv.fetch(u, i)) };
+  const sync = new Sync(db, files, (u, i) => srv.fetch(u, i));
+  const players = new Players(db, () => sync.code, () => true, (u, i) => srv.fetch(u, i));
+  return { db, files, sync, players };
 }
 
 describe.skipIf(!DATABASE_URL)("sharing with the family", () => {
@@ -157,5 +165,128 @@ describe.skipIf(!DATABASE_URL)("sharing with the family", () => {
     await expect(b.sync.join("short")).rejects.toBeInstanceOf(FamilyCodeError);
     expect(listKids(b.db).map((k) => k.name)).toEqual(["Bin"]);
     expect(b.sync.code).toBeNull();
+  });
+});
+
+describe.skipIf(!DATABASE_URL)("rankings", () => {
+  it("ranks every child of every device by the stars won by playing", async () => {
+    const srv = server();
+    const a = await device(srv);
+    const bin = addKid(a.db, "Bin", 1, null);
+    recordPuzzle(a.db, bin, null, 4); // 8
+    addStars(a.db, bin, 100, "parent"); // added by hand: not counted
+    addStars(a.db, bin, -5, "redeem"); // spent on a gift: still counted
+    const b = await device(srv);
+    const na = addKid(b.db, "Na", 2, null);
+    recordPuzzle(b.db, na, null, 9); // 18
+    addStars(b.db, na, -1, "mistake"); // lost: taken off
+    const lan = addKid(b.db, "Lan", 3, null); // no stars yet
+
+    const res = await b.players.ranking("general");
+    await a.players.push();
+    const all = await a.players.ranking("general");
+    expect(res.players.map((p) => p.name)).toEqual(["Na", "Lan"]);
+    expect(all.players.map((p) => [p.name, p.stars, p.puzzles, p.rank])).toEqual([
+      ["Na", 17, 1, 1],
+      ["Bin", 8, 1, 2],
+      ["Lan", 0, 0, 3]
+    ]);
+    // A's own player, by its id.
+    const [binId] = [...(await a.players.idsByKid()).entries()].find(([, k]) => k === bin)!;
+    expect(all.me.map((p) => [p.id, p.rank])).toEqual([[binId, 2]]);
+    expect(all.players.some((p) => "kid_id" in p || "family" in p)).toBe(false);
+    // No family: the family tab has nobody.
+    expect((await a.players.ranking("family")).players).toEqual([]);
+    expect(lan).toBeGreaterThan(0);
+  });
+
+  it("sends only changes, and removes deleted children", async () => {
+    const srv = server();
+    const a = await device(srv);
+    const bin = addKid(a.db, "Bin", 1, null);
+    const na = addKid(a.db, "Na", 2, null);
+    await a.players.push();
+    const calls: string[] = [];
+    const fetch = srv.fetch;
+    srv.fetch = (u, i) => (calls.push(`${i?.method ?? "GET"} ${u}`), fetch(u, i));
+    await a.players.push();
+    expect(calls).toEqual([]);
+
+    recordPuzzle(a.db, bin, null, 4);
+    deleteKid(a.db, na);
+    await a.players.push();
+    expect(calls).toEqual(["PUT /api/players"]);
+    const res = await a.players.ranking("general");
+    expect(res.players.map((p) => [p.name, p.stars])).toEqual([["Bin", 8]]);
+  });
+
+  it("keeps a family's children in the family tab, the same player on every device", async () => {
+    const srv = server();
+    const a = await device(srv);
+    const bin = addKid(a.db, "Bin", 1, null);
+    recordPuzzle(a.db, bin, null, 4);
+    await a.players.push(); // ranked before sharing
+    const code = await a.sync.create();
+    const b = await device(srv);
+    addKid(b.db, "Old", 0, null);
+    await b.players.push(); // B's own child, gone once B joins
+    await b.sync.join(code);
+    const other = await device(srv);
+    recordPuzzle(other.db, addKid(other.db, "Khoa", 0, null), null, 49);
+    await other.players.push();
+
+    recordPuzzle(b.db, bin, null, 2); // 4 more on B
+    await b.sync.now();
+    await a.sync.now();
+    const fam = await b.players.ranking("family");
+    expect(fam.players.map((p) => [p.name, p.stars, p.rank])).toEqual([["Bin", 12, 1]]);
+    await a.players.push();
+    const general = await a.players.ranking("general");
+    expect(general.players.map((p) => [p.name, p.stars])).toEqual([
+      ["Khoa", 98],
+      ["Bin", 12]
+    ]);
+    // Both devices name the same player.
+    expect([...(await a.players.idsByKid()).keys()]).toEqual([...(await b.players.idsByKid()).keys()]);
+    expect(localPlayers(a.db)[0].key).toBe(localPlayers(b.db)[0].key);
+  });
+
+  it("keeps one player per child when two devices of a family gave it different keys", async () => {
+    const srv = server();
+    const a = await device(srv);
+    const bin = addKid(a.db, "Bin", 1, null);
+    const code = await a.sync.create();
+    const b = await device(srv);
+    await b.sync.join(code);
+    // Both devices give Bin a key before hearing from each other.
+    await a.players.push();
+    await b.players.push();
+    expect((await a.players.ranking("family")).players).toHaveLength(1);
+    await a.sync.now();
+    await b.sync.now();
+    await a.sync.now();
+    await a.players.push();
+    await b.players.push();
+    const res = await a.players.ranking("general");
+    expect(res.players).toHaveLength(1);
+    expect(res.players[0].id).toBe(await playerId(localPlayers(b.db)[0].key));
+    expect(bin).toBeGreaterThan(0);
+  });
+
+  it("refuses bad players and a wrong family code", async () => {
+    const srv = server();
+    const put = (body: unknown, auth?: string) =>
+      srv.fetch("/api/players", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...(auth ? { Authorization: `Bearer ${auth}` } : {}) },
+        body: JSON.stringify(body)
+      });
+    const good = { key: "0".repeat(32), kid: 1, name: "Bin", color: 0, stars: 1, puzzles: 1 };
+    expect((await put({ players: [good], gone: [] })).status).toBe(200);
+    expect((await put({ players: [{ ...good, name: "x".repeat(17) }], gone: [] })).status).toBe(400);
+    expect((await put({ players: [{ ...good, stars: -1 }], gone: [] })).status).toBe(400);
+    expect((await put({ players: [{ ...good, key: "short" }], gone: [] })).status).toBe(400);
+    expect((await put({ players: [good], gone: [] }, "AAAA-BBBB-CCCC")).status).toBe(401);
+    expect((await srv.fetch("/api/ranking?scope=family")).status).toBe(401);
   });
 });

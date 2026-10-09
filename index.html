@@ -50,6 +50,7 @@
     <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2.5 5 13.5h6.5l-1 8 8.5-11h-6.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 2.5c.6 3.6 6 6.4 6 11.5a6 6 0 0 1-12 0c0-2.6 1.2-4.6 3-6 0 2 .9 3.3 2.3 3.8C10.6 9 10.6 5.6 12 2.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z" fill="currentColor"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></g></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
@@ -66,9 +67,19 @@
     <section class="screen" id="s-login" aria-label="Who is playing" hidden>
       <div class="topbar">
         <div class="topbar-left"><h2 class="title">Who is playing?</h2></div>
-        <button class="text-btn" type="button" id="kidEdit">Edit</button>
+        <div class="login-tools">
+          <button class="btn btn-secondary btn-small" type="button" id="familyBtn"><svg><use href="#i-people"/></svg><span id="familyBtnText">Family</span></button>
+          <button class="text-btn" type="button" id="kidEdit">Edit</button>
+        </div>
       </div>
       <div class="kids" id="kidList"></div>
+      <div class="overlay" id="familyWrap" hidden>
+        <div class="sheet family-sheet" role="dialog" aria-modal="true" aria-labelledby="familyTitle">
+          <h3 id="familyTitle">Family</h3>
+          <div class="share" id="shareBox"></div>
+          <div class="actions"><button class="btn btn-primary" type="button" id="familyDone">Done</button></div>
+        </div>
+      </div>
       <p class="login-hint" id="loginHint" hidden>Parents: tap "Add child" to create a profile.</p>
       <div class="overlay" id="kidFormWrap" hidden>
         <form class="sheet kid-sheet" id="kidForm" role="dialog" aria-modal="true" aria-labelledby="kidFormTitle">
@@ -114,6 +125,10 @@
           <button class="home-card" type="button" data-go="shop">
             <span class="bubble" style="background: var(--star-soft); color: #C98E22"><svg><use href="#i-gift"/></svg></span>
             Gifts
+          </button>
+          <button class="home-card" type="button" data-go="rank">
+            <span class="bubble" style="background: var(--ok-soft); color: var(--ok)"><svg><use href="#i-trophy"/></svg></span>
+            Ranking
           </button>
         </div>
       </div>
@@ -235,7 +250,23 @@
       </div>
     </section>
 
-    <!-- 6. Parent -->
+    <!-- 6. Ranking -->
+    <section class="screen" id="s-rank" aria-label="Ranking" hidden>
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="round-btn" type="button" data-go="home" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+          <h2 class="title">Ranking</h2>
+        </div>
+        <div class="rank-tabs" id="rankTabs" role="tablist">
+          <button class="rank-tab" type="button" role="tab" data-scope="general" id="rankGeneral">General</button>
+          <button class="rank-tab" type="button" role="tab" data-scope="family" id="rankFamily">Family</button>
+        </div>
+        <div class="stars"><svg><use href="#i-star"/></svg><span data-stars>0</span></div>
+      </div>
+      <div class="rank-list" id="rankList" role="tabpanel"></div>
+    </section>
+
+    <!-- 7. Parent -->
     <section class="screen" id="s-parent" aria-label="Parents" hidden>
       <div class="topbar">
         <div class="topbar-left">
@@ -284,7 +315,6 @@
             <b id="soundLabel">Sound</b>
             <button class="toggle" type="button" role="switch" id="soundToggle" aria-labelledby="soundLabel" aria-checked="true"></button>
           </div>
-          <div class="share" id="shareBox"></div>
         </div>
       </div>
     </section>

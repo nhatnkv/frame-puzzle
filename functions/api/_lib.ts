@@ -58,6 +58,14 @@ export async function withDb(
   }
 }
 
+/**
+ * A Postgres array literal for a list of hex ids or whole numbers (the driver is set up without
+ * array types). Only for values that hold no commas, quotes, braces or spaces.
+ */
+export function pgArray(list: Array<string | number>): string {
+  return `{${list.join(",")}}`;
+}
+
 export function fail(status: number, error: string): Response {
   return Response.json({ error }, { status });
 }
@@ -72,10 +80,13 @@ export function cleanCode(code: string): string | null {
   return c.length === CODE_LENGTH && [...c].every((ch) => CODE_ALPHABET.includes(ch)) ? c : null;
 }
 
-export async function familyId(code: string): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code));
+/** SHA-256 in hex. */
+export async function sha256(text: string): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+export const familyId = sha256;
 
 /** The family whose code is in the Authorization header, or a 401 response. */
 export async function family(request: Request, db: Db): Promise<string | Response> {
