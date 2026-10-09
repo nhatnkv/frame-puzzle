@@ -1,0 +1,46 @@
+name: Fetch new pictures
+
+# Temporary helper on this branch only: the development machine cannot reach figma.com, so a
+# runner downloads the pictures made with Figma AI and commits them under new-pictures/ for review.
+# Removed again before the pictures go into the app.
+
+on:
+  push:
+    branches: [claude/project-thread-0md0qb]
+    paths: [new-pictures/urls.txt]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pillow
+      - name: Download and convert
+        run: |
+          mkdir -p /tmp/raw
+          # Each line: batch-N/name https://www.figma.com/api/mcp/asset/<id>.png
+          while read -r name url; do
+            [ -z "$name" ] && continue
+            case "$name" in batch-[0-9]*/[a-z0-9]*) ;; *) echo "Bad name: $name"; exit 1 ;; esac
+            case "$name" in *[!a-z0-9/-]*) echo "Bad name: $name"; exit 1 ;; esac
+            case "$url" in https://www.figma.com/api/mcp/asset/*) ;; *) echo "Bad URL for $name"; exit 1 ;; esac
+            out="new-pictures/$name.jpg"
+            [ -f "$out" ] && continue
+            mkdir -p "$(dirname "$out")"
+            raw="/tmp/raw/$(echo "$name" | tr / _).png"
+            curl -fsSL -o "$raw" "$url"
+            python -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], quality=90, optimize=True, progressive=True)' "$raw" "$out"
+          done < new-pictures/urls.txt
+          find new-pictures -name '*.jpg' | wc -l
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add new-pictures
+          git diff --cached --quiet || { git commit -m "Add generated pictures for review"; git push; }
