@@ -1,13 +1,14 @@
 name: Fetch new pictures
 
-# Temporary helper on this branch only: the development machine cannot reach figma.com, so a
-# runner downloads the pictures made with Figma AI and commits them under new-pictures/ for review.
-# Removed again before the pictures go into the app.
+# Temporary helper while new built-in pictures are being made: the development machine cannot reach
+# figma.com, so a runner downloads the pictures made with Figma AI into src/pictures as JPEG, makes
+# their small copies and commits them to the branch they are being made on. Removed once all the
+# pictures are in.
 
 on:
   push:
     branches: [claude/project-thread-0md0qb]
-    paths: [new-pictures/urls.txt]
+    paths: [.github/new-picture-urls.txt]
 
 permissions:
   contents: write
@@ -24,23 +25,21 @@ jobs:
       - name: Download and convert
         run: |
           mkdir -p /tmp/raw
-          # Each line: batch-N/name https://www.figma.com/api/mcp/asset/<id>.png
+          # Each line: <picture name> https://www.figma.com/api/mcp/asset/<id>.png
           while read -r name url; do
             [ -z "$name" ] && continue
-            case "$name" in batch-[0-9]*/[a-z0-9]*) ;; *) echo "Bad name: $name"; exit 1 ;; esac
-            case "$name" in *[!a-z0-9/-]*) echo "Bad name: $name"; exit 1 ;; esac
+            case "$name" in [a-z0-9]*) ;; *) echo "Bad name: $name"; exit 1 ;; esac
+            case "$name" in *[!a-z0-9-]*) echo "Bad name: $name"; exit 1 ;; esac
             case "$url" in https://www.figma.com/api/mcp/asset/*) ;; *) echo "Bad URL for $name"; exit 1 ;; esac
-            out="new-pictures/$name.jpg"
+            out="src/pictures/$name.jpg"
             [ -f "$out" ] && continue
-            mkdir -p "$(dirname "$out")"
-            raw="/tmp/raw/$(echo "$name" | tr / _).png"
-            curl -fsSL -o "$raw" "$url"
-            python -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], quality=90, optimize=True, progressive=True)' "$raw" "$out"
-          done < new-pictures/urls.txt
-          find new-pictures -name '*.jpg' | wc -l
+            curl -fsSL -o "/tmp/raw/$name.png" "$url"
+            python -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], quality=90, optimize=True, progressive=True)' "/tmp/raw/$name.png" "$out"
+          done < .github/new-picture-urls.txt
+          python scripts/thumbs.py
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add new-pictures
-          git diff --cached --quiet || { git commit -m "Add generated pictures for review"; git push; }
+          git add src/pictures
+          git diff --cached --quiet || { git commit -m "Add generated pictures"; git push; }
