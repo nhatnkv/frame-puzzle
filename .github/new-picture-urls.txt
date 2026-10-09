@@ -74,3 +74,15 @@ rose-castle https://www.figma.com/api/mcp/asset/fd58f985-8471-42de-8def-4d4692e9
 three-little-pigs https://www.figma.com/api/mcp/asset/a8529536-7430-4cf5-b6fc-62eee01f18fb.png
 wonderland-tea-party https://www.figma.com/api/mcp/asset/b616c0b0-f52b-450a-8032-f6f92abe46da.png
 seven-dwarfs-cottage https://www.figma.com/api/mcp/asset/447e617d-569f-4091-8366-1b5ff5a5e383.png
+frog-prince https://www.figma.com/api/mcp/asset/ce78e233-8aa3-4245-addb-b90099de8bf0.png
+princess-and-pea https://www.figma.com/api/mcp/asset/77b7681e-bcc9-4d39-a27a-b469880f2ecd.png
+eiffel-tower https://www.figma.com/api/mcp/asset/afbb34bd-734b-476a-9354-eab8a74d8bb6.png
+great-wall https://www.figma.com/api/mcp/asset/9e828ea9-976b-4cd9-809f-3b3e2c1bffe9.png
+pyramids-giza https://www.figma.com/api/mcp/asset/025c86ca-a3eb-463e-a6d3-adbe3eae2627.png
+taj-mahal https://www.figma.com/api/mcp/asset/22b1fa0d-2a6c-4724-bf76-d0ce72ae3cb6.png
+machu-picchu https://www.figma.com/api/mcp/asset/0a0e1012-f3de-4222-9a43-d060e5804fa1.png
+colosseum https://www.figma.com/api/mcp/asset/e2e22bcb-acc9-4d77-b790-0af7eeeb7705.png
+angkor-wat https://www.figma.com/api/mcp/asset/205ea92c-5092-437f-ab12-37245d17e602.png
+hoi-an https://www.figma.com/api/mcp/asset/fd357c98-5f22-47fa-97f0-548bb92c42f5.png
+statue-of-liberty https://www.figma.com/api/mcp/asset/a67452b1-0767-4788-b96b-5aa7c9618825.png
+sydney-opera-house https://www.figma.com/api/mcp/asset/08943fb2-2f61-45bf-860f-8af2866ce1a8.png

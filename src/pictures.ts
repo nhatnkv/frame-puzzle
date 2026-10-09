@@ -41,7 +41,7 @@ export const CATEGORIES = [
     id: "fairy-tales",
     label: "Fairy tales",
     icon: "castle",
-    pictures: ["jack-beanstalk", "gingerbread-house", "red-riding-hood", "rose-castle", "frog-prince", "puss-in-boots", "three-little-pigs", "princess-and-pea", "wonderland-tea-party", "seven-dwarfs-cottage"]
+    pictures: ["jack-beanstalk", "gingerbread-house", "red-riding-hood", "rose-castle", "frog-prince", "three-little-pigs", "princess-and-pea", "wonderland-tea-party", "seven-dwarfs-cottage"]
   },
   {
     id: "space",
