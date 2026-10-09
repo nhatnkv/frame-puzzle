@@ -26,6 +26,15 @@ export class FileStore {
     return key;
   }
 
+  /** Saves a file under a key made on another device (a picture shared by the family). */
+  async putAs(key: string, bytes: ArrayBuffer, type: string): Promise<void> {
+    await this.kv.put(key, { type, bytes } satisfies StoredFile);
+  }
+
+  keys(): Promise<string[]> {
+    return this.kv.keys();
+  }
+
   async get(key: string): Promise<StoredFile | undefined> {
     return this.kv.get<StoredFile>(key);
   }

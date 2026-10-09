@@ -1,4 +1,5 @@
 import { AppDb, now } from "../db/database";
+import { newId } from "../db/ids";
 import { starCost, starsPerPiece, type Level } from "../puzzle/levels";
 
 export type StarReason = "puzzle" | "redeem" | "parent" | "mistake" | "hint";
@@ -13,7 +14,8 @@ export function starTotal(db: AppDb, kidId: number): number {
 }
 
 export function addStars(db: AppDb, kidId: number, delta: number, reason: StarReason, refId: number | null = null): void {
-  db.run("INSERT INTO star_entries (kid_id, delta, reason, ref_id, created_at) VALUES (?, ?, ?, ?, ?)", [
+  db.run("INSERT INTO star_entries (id, kid_id, delta, reason, ref_id, created_at) VALUES (?, ?, ?, ?, ?, ?)", [
+    newId(),
     kidId,
     delta,
     reason,
@@ -41,7 +43,8 @@ export function chargeStars(db: AppDb, kidId: number, reason: "mistake" | "hint"
 export function recordPuzzle(db: AppDb, kidId: number, photoId: number | null, pieces: number, level: Level = "easy"): number {
   const stars = starsFor(pieces, level);
   db.transaction(() => {
-    const id = db.run("INSERT INTO puzzles (kid_id, photo_id, pieces, stars, completed_at) VALUES (?, ?, ?, ?, ?)", [
+    const id = db.run("INSERT INTO puzzles (id, kid_id, photo_id, pieces, stars, completed_at) VALUES (?, ?, ?, ?, ?, ?)", [
+      newId(),
       kidId,
       photoId,
       pieces,

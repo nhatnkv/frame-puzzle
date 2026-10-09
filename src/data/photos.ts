@@ -1,4 +1,5 @@
 import { AppDb, now } from "../db/database";
+import { newId } from "../db/ids";
 
 export interface Photo {
   id: number;
@@ -34,7 +35,8 @@ export function getPhoto(db: AppDb, id: number): Photo | null {
 }
 
 export function addPhoto(db: AppDb, fileKey: string, width: number, height: number, createdAt = now()): number {
-  return db.run("INSERT INTO photos (file_key, width, height, created_at) VALUES (?, ?, ?, ?)", [
+  return db.run("INSERT INTO photos (id, file_key, width, height, created_at) VALUES (?, ?, ?, ?, ?)", [
+    newId(),
     fileKey,
     width,
     height,

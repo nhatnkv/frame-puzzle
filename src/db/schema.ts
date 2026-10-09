@@ -2,6 +2,10 @@
 // Image bytes are not stored in SQLite: rows keep a file key into the "files" store (src/db/files.ts),
 // so saving the database after every tap stays fast however many photos the family imports.
 
+/** The tables shared with the family, parents before children. Settings stay on each device. */
+export const SYNCED_TABLES = ["kids", "photos", "rewards", "redemptions", "star_entries", "puzzles"] as const;
+export type SyncedTable = (typeof SYNCED_TABLES)[number];
+
 export const MIGRATIONS: string[][] = [
   // v1
   [
@@ -67,6 +71,31 @@ export const MIGRATIONS: string[][] = [
     `DROP TABLE star_entries`,
     `ALTER TABLE star_entries_v2 RENAME TO star_entries`,
     `CREATE INDEX star_entries_kid ON star_entries(kid_id)`
+  ],
+  // v3: sharing with the family (src/sync/sync.ts). Triggers note every changed row in an outbox
+  // that is sent to the server, except while rows from the server are being applied.
+  [
+    `CREATE TABLE sync_outbox (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      tbl TEXT NOT NULL,
+      row_id INTEGER NOT NULL)`,
+    `CREATE INDEX sync_outbox_row ON sync_outbox(tbl, row_id)`,
+    `CREATE TABLE sync_flag (applying INTEGER NOT NULL)`,
+    `INSERT INTO sync_flag (applying) VALUES (0)`,
+    `CREATE TABLE sync_files (key TEXT PRIMARY KEY)`,
+    ...SYNCED_TABLES.flatMap((t) =>
+      (["INSERT", "UPDATE", "DELETE"] as const).map((op) => {
+        const row = op === "DELETE" ? "OLD" : "NEW";
+        // The pictures that come with the app are added by every device itself.
+        const own = t === "photos" ? ` AND ${row}.file_key NOT LIKE 'builtin:%'` : "";
+        return `CREATE TRIGGER ${t}_sync_${op.toLowerCase()} AFTER ${op} ON ${t}
+          WHEN (SELECT applying FROM sync_flag) = 0${own}
+          BEGIN
+            DELETE FROM sync_outbox WHERE tbl = '${t}' AND row_id = ${row}.id;
+            INSERT INTO sync_outbox (tbl, row_id) VALUES ('${t}', ${row}.id);
+          END`;
+      })
+    )
   ]
 ];
 

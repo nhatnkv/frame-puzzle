@@ -1,4 +1,4 @@
-import type { PagesFunction } from "./_types";
+import type { PagesFunction } from "./_lib";
 
 // GET /api/health: shows the API is running and can reach the shared database.
 export const onRequestGet: PagesFunction = async ({ env }) => {

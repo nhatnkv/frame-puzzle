@@ -1,4 +1,5 @@
 import { AppDb, now } from "../db/database";
+import { newId } from "../db/ids";
 
 export interface Kid {
   id: number;
@@ -32,7 +33,8 @@ export function countKids(db: AppDb): number {
 
 export function addKid(db: AppDb, name: string, color: number, photoKey: string | null): number {
   const sort = db.value<number>("SELECT COALESCE(MAX(sort), -1) + 1 FROM kids");
-  return db.run("INSERT INTO kids (name, color, photo_key, sort, created_at) VALUES (?, ?, ?, ?, ?)", [
+  return db.run("INSERT INTO kids (id, name, color, photo_key, sort, created_at) VALUES (?, ?, ?, ?, ?, ?)", [
+    newId(),
     cleanName(name),
     color,
     photoKey,
