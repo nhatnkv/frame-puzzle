@@ -1,4 +1,8 @@
+import { readdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
+
+/** How many pictures come with the app: every file in src/pictures is listed in a category. */
+const BUILTIN_COUNT = readdirSync(new URL("../src/pictures/", import.meta.url)).filter((f) => f.endsWith(".jpg")).length;
 
 interface FrameState {
   rows: number;
@@ -551,10 +555,11 @@ test("a parent imports a picture and deletes it with two taps; the app's own pic
   await pickKid(page, "Bin");
   await page.click(".home-card[data-go=choose]");
   const thumbs = page.locator("#library .thumb-btn");
-  await expect(thumbs).toHaveCount(15);
+  await expect(thumbs).toHaveCount(BUILTIN_COUNT);
   await expect(page.locator("#libEdit")).toBeHidden();
   await expect(thumbs.locator("img").first()).toHaveJSProperty("complete", true);
-  expect(await thumbs.locator("img").first().evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(1536);
+  // The row shows a small copy of each built-in picture.
+  expect(await thumbs.locator("img").first().evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(384);
   // A new photo shows with the family's own photos, chosen.
   await page.setInputFiles("#pickPhoto", await pictureFile(page, "beach.png", "#9EC3E3"));
   await expect(page.locator("#categoryBtn")).toHaveText(/My photos\s*\(1\)/);
@@ -578,10 +583,18 @@ test("pictures can be shown one category at a time, remembered for each child", 
   await page.click(".home-card[data-go=choose]");
   const thumbs = page.locator("#library .thumb-btn");
   const menu = page.locator("#categoryMenu");
-  await expect(page.locator("#categoryBtn")).toHaveText(/All pictures\s*\(15\)/);
+  await expect(page.locator("#categoryBtn")).toHaveText(new RegExp(`All pictures\\s*\\(${BUILTIN_COUNT}\\)`));
   await expect(menu).toBeHidden();
   await page.click("#categoryBtn");
-  await expect(menu.locator(".cat-item")).toHaveText([/All pictures\s*15/, /Animals\s*2/, /Vehicles\s*3/, /Landscapes\s*10/, /My photos\s*0/]);
+  const items = menu.locator(".cat-item");
+  await expect(items.first()).toHaveText(new RegExp(`All pictures\\s*${BUILTIN_COUNT}`));
+  await expect(items.nth(1)).toHaveText(/Animals\s*2/);
+  await expect(items.nth(2)).toHaveText(/Vehicles\s*3/);
+  await expect(items.nth(3)).toHaveText(/Landscapes\s*10/);
+  await expect(items.last()).toHaveText(/My photos\s*0/);
+  // Every category fits on the screen.
+  const box = await menu.boundingBox();
+  expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
   // A tap outside closes the menu without changing anything.
   await page.mouse.click(40, 700);
   await expect(menu).toBeHidden();
@@ -609,7 +622,7 @@ test("pictures can be shown one category at a time, remembered for each child", 
   // short browser window, where the whole screen is scaled up.
   await page.click("#categoryBtn");
   await menu.locator(".cat-item", { hasText: "All pictures" }).click();
-  await expect(thumbs).toHaveCount(15);
+  await expect(thumbs).toHaveCount(BUILTIN_COUNT);
   for (const [w, h] of [
     [1024, 768],
     [2560, 1300]

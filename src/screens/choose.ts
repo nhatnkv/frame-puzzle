@@ -3,7 +3,7 @@
 
 import { getApp } from "../app";
 import { addPhoto, deletePhoto, getPhoto, isBuiltin, listPhotos, touchPhoto, type Photo } from "../data/photos";
-import { builtinUrl, categoryOf, type Category } from "../pictures";
+import { builtinThumb, builtinUrl, categoryOf, SHIPPED_CATEGORIES, type Category } from "../pictures";
 import { getSetting, setSetting } from "../data/settings";
 import { starsFor, starTotal } from "../data/stars";
 import { DEFAULT_LEVEL, isLevel, LEVELS, mixesShapes, pieceCounts, playable, scattersOnMistake, type Level } from "../puzzle/levels";
@@ -31,6 +31,11 @@ function photoUrl(p: Photo): Promise<string | null> {
   return isBuiltin(p) ? Promise.resolve(builtinUrl(p.file_key)) : getApp().files.url(p.file_key);
 }
 
+/** What the library row shows: a small copy for the built-in pictures, the photo itself for the family's. */
+function thumbUrl(p: Photo): Promise<string | null> {
+  return isBuiltin(p) ? Promise.resolve(builtinThumb(p.file_key)) : getApp().files.url(p.file_key);
+}
+
 /** The picture as an image element, decoded once per selection. */
 export async function photoImage(id: number): Promise<HTMLImageElement> {
   if (loaded?.id === id) return loaded.img;
@@ -45,9 +50,7 @@ export async function photoImage(id: number): Promise<HTMLImageElement> {
 type Filter = "all" | Category;
 const FILTERS: Array<{ id: Filter; label: string; icon: string }> = [
   { id: "all", label: "All pictures", icon: "grid" },
-  { id: "animals", label: "Animals", icon: "paw" },
-  { id: "vehicles", label: "Vehicles", icon: "car" },
-  { id: "landscapes", label: "Landscapes", icon: "mountain" },
+  ...SHIPPED_CATEGORIES.map(({ id, label, icon }) => ({ id, label, icon })),
   { id: "mine", label: "My photos", icon: "photo" }
 ];
 const isFilter = (v: string): v is Filter => FILTERS.some((f) => f.id === v);
@@ -164,8 +167,8 @@ function render(): void {
   }
   for (const p of photos) {
     const on = p.id === photoId;
-    const img = h("img", { alt: "" });
-    void photoUrl(p).then((u) => u && (img.src = u));
+    const img = h("img", { alt: "", loading: "lazy", decoding: "async" });
+    void thumbUrl(p).then((u) => u && (img.src = u));
     const b = h("button", { type: "button", class: `thumb-btn${on ? " on" : ""}`, "aria-label": "Choose this picture", "aria-pressed": on ? "true" : "false" }, img);
     b.addEventListener("click", () => {
       photoId = p.id;
