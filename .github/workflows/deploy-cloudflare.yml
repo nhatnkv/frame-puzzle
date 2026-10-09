@@ -92,4 +92,21 @@ jobs:
         if: steps.ready.outputs.deploy == 'true'
         env:
           BRANCH: ${{ github.ref_name }}
-        run: $WRANGLER pages deploy --project-name "$PROJECT" --branch "$BRANCH" --commit-hash "$GITHUB_SHA" --commit-dirty=true
+        run: |
+          $WRANGLER pages deploy --project-name "$PROJECT" --branch "$BRANCH" --commit-hash "$GITHUB_SHA" --commit-dirty=true | tee deploy.log
+          url=$(grep -oE 'https://[a-z0-9-]+\.'"$PROJECT"'\.pages\.dev' deploy.log | head -1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+        id: deploy
+      # The new deployment answers, and its API reaches the database.
+      - name: Check the API
+        if: steps.ready.outputs.deploy == 'true' && steps.ready.outputs.database == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          for i in 1 2 3 4 5 6; do
+            body=$(curl -sS "$URL/api/health" || true)
+            echo "$body"
+            echo "$body" | jq -e '.ok == true and .db == true' > /dev/null && exit 0
+            sleep 10
+          done
+          exit 1
