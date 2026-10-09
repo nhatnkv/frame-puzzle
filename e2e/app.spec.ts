@@ -730,7 +730,10 @@ test("fills every iPad screen without scrolling", async ({ page }) => {
     [1366, 1024]
   ]) {
     await page.setViewportSize({ width: w, height: h });
-    await page.waitForTimeout(100);
+    // WebKit on a busy runner can take longer than a moment to deliver the resize event.
+    await expect
+      .poll(() => page.evaluate(() => Math.round(document.getElementById("stage")!.getBoundingClientRect().width)))
+      .toBe(w);
     const m = await page.evaluate(() => {
       const r = document.getElementById("stage")!.getBoundingClientRect();
       const d = document.documentElement;
