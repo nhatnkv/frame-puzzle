@@ -86,3 +86,13 @@ angkor-wat https://www.figma.com/api/mcp/asset/205ea92c-5092-437f-ab12-37245d17e
 hoi-an https://www.figma.com/api/mcp/asset/fd357c98-5f22-47fa-97f0-548bb92c42f5.png
 statue-of-liberty https://www.figma.com/api/mcp/asset/a67452b1-0767-4788-b96b-5aa7c9618825.png
 sydney-opera-house https://www.figma.com/api/mcp/asset/08943fb2-2f61-45bf-860f-8af2866ce1a8.png
+candy-land https://www.figma.com/api/mcp/asset/38a7ffec-7754-4d84-bd39-27d94a229b9e.png
+bakery-window https://www.figma.com/api/mcp/asset/6e5f2f80-ebb7-4949-9e7e-c85d343e2855.png
+fruit-market https://www.figma.com/api/mcp/asset/d4d86050-25a6-411a-aec4-8dfef3c31320.png
+ice-cream-parlor https://www.figma.com/api/mcp/asset/f0c4a680-3f06-4734-b87d-fe2d88bea6a1.png
+birthday-table https://www.figma.com/api/mcp/asset/34dd38de-c043-407a-bcb1-3da15aa1fbe6.png
+sushi-platter https://www.figma.com/api/mcp/asset/a19c9e0a-0186-49bc-923a-3e969121d970.png
+tet-feast https://www.figma.com/api/mcp/asset/138e9152-dd15-4169-b3e8-7291b4a836ce.png
+candy-jars https://www.figma.com/api/mcp/asset/284043e0-2234-4b9a-80ba-2baeb6135c3a.png
+harvest-table https://www.figma.com/api/mcp/asset/a5b1537e-f091-41dd-9751-e3c19304fc85.png
+donut-trays https://www.figma.com/api/mcp/asset/54ef8844-ce7d-480f-81f0-e21c5a4e7543.png
