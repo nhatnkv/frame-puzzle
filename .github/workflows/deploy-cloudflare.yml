@@ -3,7 +3,7 @@ name: Deploy to Cloudflare
 # Publishes the app and its API to Cloudflare Pages (https://frame-puzzle.pages.dev) whenever the
 # default branch changes; other branches get a preview address. The first run creates the Pages
 # project. One-time setup, as repository secrets:
-#   CLOUDFLARE_API_TOKEN   permissions: Account > Cloudflare Pages: Edit
+#   CLOUDFLARE_API_TOKEN   permissions: Account > Cloudflare Pages: Edit (and Hyperdrive: Edit, optional)
 #   CLOUDFLARE_ACCOUNT_ID
 #   DATABASE_URL           postgres://user:password@host/db?sslmode=require, the family's shared data
 # Without the Cloudflare secrets this workflow only builds; without DATABASE_URL it deploys the app
@@ -70,6 +70,24 @@ jobs:
           for env in production preview; do
             printf '%s' "$DATABASE_URL" | $WRANGLER pages secret put DATABASE_URL --project-name "$PROJECT" --env "$env"
           done
+      # Optional: with Hyperdrive: Edit on the token, the API reaches the database through
+      # Hyperdrive, which keeps connections open; without it the API connects directly.
+      - name: Connect Hyperdrive
+        if: steps.ready.outputs.deploy == 'true' && steps.ready.outputs.database == 'true'
+        continue-on-error: true
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs"
+          find() { curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api" | jq -r --arg n "$PROJECT" '.result[] | select(.name == $n) | .id'; }
+          id=$(find)
+          if [ -z "$id" ]; then
+            $WRANGLER hyperdrive create "$PROJECT" --connection-string "$DATABASE_URL" > /dev/null
+            id=$(find)
+          else
+            $WRANGLER hyperdrive update "$id" --connection-string "$DATABASE_URL" > /dev/null
+          fi
+          test -n "$id"
+          printf '\n[[hyperdrive]]\nbinding = "HYPERDRIVE"\nid = "%s"\n' "$id" >> wrangler.toml
+          echo "Using Hyperdrive $id"
       - name: Deploy
         if: steps.ready.outputs.deploy == 'true'
         env:

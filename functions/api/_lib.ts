@@ -7,6 +7,8 @@ import postgres from "postgres";
 export interface Env {
   /** postgres://user:password@host/db, set as a secret on the Pages project. */
   DATABASE_URL: string;
+  /** Cloudflare Hyperdrive in front of the same database, when the deploy could set it up. */
+  HYPERDRIVE?: { connectionString: string };
 }
 
 export type PagesFunction = (context: {
@@ -43,9 +45,12 @@ export async function withDb(
   waitUntil: (p: Promise<unknown>) => void,
   fn: (db: Db) => Promise<Response>
 ): Promise<Response> {
-  if (!env.DATABASE_URL) return fail(503, "No database configured");
+  // Hyperdrive keeps connections to the database open between requests, so each sync skips the
+  // connection set-up; without it the API connects to the database directly.
+  const url = env.HYPERDRIVE?.connectionString || env.DATABASE_URL;
+  if (!url) return fail(503, "No database configured");
   // fetch_types off: the API uses only built-in types, and it saves a round trip per request.
-  const sql = postgres(env.DATABASE_URL, { max: 1, fetch_types: false, prepare: false, onnotice: () => {} });
+  const sql = postgres(url, { max: 1, fetch_types: false, prepare: false, onnotice: () => {} });
   try {
     return await fn(wrap(sql));
   } finally {
