@@ -96,3 +96,13 @@ tet-feast https://www.figma.com/api/mcp/asset/138e9152-dd15-4169-b3e8-7291b4a836
 candy-jars https://www.figma.com/api/mcp/asset/284043e0-2234-4b9a-80ba-2baeb6135c3a.png
 harvest-table https://www.figma.com/api/mcp/asset/a5b1537e-f091-41dd-9751-e3c19304fc85.png
 donut-trays https://www.figma.com/api/mcp/asset/54ef8844-ce7d-480f-81f0-e21c5a4e7543.png
+floating-market https://www.figma.com/api/mcp/asset/5eb6629b-cc4b-4760-afc7-92d5e35d8de6.png
+busy-harbor https://www.figma.com/api/mcp/asset/de60d71a-3dc4-434a-82c2-00ec7c5a0502.png
+busy-farm https://www.figma.com/api/mcp/asset/64a7b91e-2484-4d15-a146-37e2007e0c50.png
+amusement-park https://www.figma.com/api/mcp/asset/b155edb5-e074-425b-a7fb-83c5f2f23643.png
+busy-beach https://www.figma.com/api/mcp/asset/37559c0f-98dc-4176-9fd3-cad9757aaf6a.png
+train-station https://www.figma.com/api/mcp/asset/dcbcba70-7df2-4adc-aa46-c65a5bcc8e6d.png
+busy-airport https://www.figma.com/api/mcp/asset/42a97caf-5dbe-46e1-8263-44a126776d75.png
+school-playground https://www.figma.com/api/mcp/asset/bf64989b-880a-497d-85a2-e1761c8155d5.png
+winter-village https://www.figma.com/api/mcp/asset/711245fc-1b36-464c-980b-21a10c67cece.png
+busy-zoo https://www.figma.com/api/mcp/asset/19a1864c-1cf0-4f77-bb23-adf6080e24dc.png
