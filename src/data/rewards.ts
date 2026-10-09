@@ -1,6 +1,7 @@
 // Gifts the parents add (shared by the family) and the gifts each child has traded stars for.
 
 import { AppDb, now } from "../db/database";
+import { newId } from "../db/ids";
 import { addStars, starTotal } from "./stars";
 
 export interface Reward {
@@ -34,7 +35,8 @@ export function getReward(db: AppDb, id: number): Reward | null {
 
 export function addReward(db: AppDb, name: string, price: number, imageKey: string | null): number {
   const sort = db.value<number>("SELECT COALESCE(MAX(sort), -1) + 1 FROM rewards");
-  return db.run("INSERT INTO rewards (name, price, image_key, sort) VALUES (?, ?, ?, ?)", [
+  return db.run("INSERT INTO rewards (id, name, price, image_key, sort) VALUES (?, ?, ?, ?, ?)", [
+    newId(),
     cleanGiftName(name),
     cleanPrice(price),
     imageKey,
@@ -83,8 +85,8 @@ export function redeem(db: AppDb, kidId: number, rewardId: number): Redemption |
     const g = getReward(db, rewardId);
     if (!g || starTotal(db, kidId) < g.price) return;
     id = db.run(
-      "INSERT INTO redemptions (kid_id, reward_id, name, price, image_key, redeemed_at) VALUES (?, ?, ?, ?, ?, ?)",
-      [kidId, g.id, g.name, g.price, g.image_key, now()]
+      "INSERT INTO redemptions (id, kid_id, reward_id, name, price, image_key, redeemed_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [newId(), kidId, g.id, g.name, g.price, g.image_key, now()]
     );
     addStars(db, kidId, -g.price, "redeem", id);
   });

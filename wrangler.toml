@@ -1,0 +1,9 @@
+# Cloudflare Pages project for Frame Puzzle: the static app from dist/ plus the API in functions/.
+# Deployed by .github/workflows/deploy-cloudflare.yml, which also creates the project the first
+# time. The API reaches the family's Postgres database through the DATABASE_URL secret; locally,
+# put DATABASE_URL=postgres://... in .dev.vars and run `npx wrangler pages dev`.
+name = "frame-puzzle"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-09-01"
+# The Postgres driver needs Node's Buffer and friends and Cloudflare's TCP sockets.
+compatibility_flags = ["nodejs_compat"]

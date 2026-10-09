@@ -59,6 +59,10 @@ The UI is laid out at iPad size (1194x834 stage units) and scaled to fill the sc
 
 The app is live at https://nhatnkv.github.io/frame-puzzle/. `.github/workflows/deploy.yml` builds and publishes `dist/` to GitHub Pages on every push to the default branch, or when run by hand from the Actions tab. One-time setup (done): the repository is public (the code holds no family data) and **Settings > Pages > Source** is **GitHub Actions**.
 
+The app is also published on Cloudflare Pages (https://frame-puzzle.pages.dev), where an API in `functions/` keeps the family's shared data in Postgres. In **Parents > Share with family**, one device starts sharing and shows a family code; other devices join with that code (their own data is replaced, with a copy kept on the device). Every device still keeps the whole database, so the app works offline: changed rows wait in an outbox and are swapped with the server a moment after each change, every 30 seconds while the app is open, and when the network comes back (`src/sync/sync.ts`, `functions/api/sync.ts`). The GitHub Pages copy uses the same API, so a family can start sharing there and join on the Cloudflare address.
+
+`.github/workflows/deploy-cloudflare.yml` deploys every push (the default branch to production, other branches to a preview address), creates the Pages project on its first run, applies `migrations/` with `scripts/migrate.mjs` and hands the API the database address. One-time setup: repository secrets `CLOUDFLARE_API_TOKEN` (permission Account > Cloudflare Pages: Edit), `CLOUDFLARE_ACCOUNT_ID` and `DATABASE_URL` (a Postgres connection string). To run it locally: put `DATABASE_URL=postgres://...` in `.dev.vars`, run `DATABASE_URL=... node scripts/migrate.mjs`, then `npm run build && npx wrangler pages dev` and open http://localhost:8788/api/health. The API's tests need a Postgres too: `TEST_DATABASE_URL=postgres://... npm test` (CI starts one).
+
 ## Design and milestones
 
 The product design, UI, data model and plan were agreed before coding, then built one milestone at a time:

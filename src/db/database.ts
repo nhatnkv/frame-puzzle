@@ -13,6 +13,7 @@ const DB_KEY = "sqlite";
 export class AppDb {
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private saving: Promise<void> = Promise.resolve();
+  private writeListeners: Array<() => void> = [];
 
   private constructor(
     private readonly sql: Database,
@@ -90,7 +91,38 @@ export class AppDb {
     }
   }
 
+  /** Calls `fn` after every write. */
+  onWrite(fn: () => void): void {
+    this.writeListeners.push(fn);
+  }
+
+  /**
+   * Runs `fn` in one transaction with foreign keys off and the sync triggers quiet: used to apply
+   * rows that came from the family's other devices, which may arrive in any order.
+   */
+  applyRemote<T>(fn: () => T): T {
+    this.sql.run("PRAGMA foreign_keys = OFF");
+    try {
+      return this.transaction(() => {
+        this.sql.run("UPDATE sync_flag SET applying = 1");
+        const result = fn();
+        this.sql.run("UPDATE sync_flag SET applying = 0");
+        return result;
+      });
+    } finally {
+      this.enableForeignKeys();
+    }
+  }
+
+  /** Keeps a copy of the database file under its own key, e.g. before it is replaced. */
+  async backup(label: string): Promise<void> {
+    const bytes = this.sql.export();
+    this.enableForeignKeys();
+    await this.kv.put(`${DB_KEY}-${label}-${Date.now()}`, bytes);
+  }
+
   scheduleSave(): void {
+    for (const fn of this.writeListeners) fn();
     if (this.saveTimer) clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => void this.flush(), this.saveDelay);
   }

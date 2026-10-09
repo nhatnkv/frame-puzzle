@@ -265,6 +265,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .toggle[aria-checked="true"] { background: var(--ok); }
 .toggle[aria-checked="true"]::after { left: 34px; }
 .note { font-size: 15px; color: var(--muted); font-weight: 600; }
+.share { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 20px; background: var(--bg); flex-shrink: 0; }
+.share .note { margin: 0; }
+.share-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.share-row b { font-size: 20px; flex-grow: 1; }
+.share-code { font-size: 24px; font-weight: 800; letter-spacing: 2px; font-variant-numeric: tabular-nums; user-select: text; -webkit-user-select: text; }
+.share input { color: var(--ink); height: 50px; flex: 1; min-width: 0; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); padding: 0 14px; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.share .btn.armed { background: var(--danger); border-color: var(--danger); color: #FFFFFF; }
 
 /* Finished: celebration */
 .confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }

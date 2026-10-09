@@ -7,6 +7,8 @@ import { syncBuiltins } from "./data/photos";
 import { AppDb } from "./db/database";
 import { FileStore } from "./db/files";
 import { idbKV } from "./db/kv";
+import { getKid } from "./data/kids";
+import { Sync } from "./sync/sync";
 import { BUILTIN_PICTURES } from "./pictures";
 import { setupChoose } from "./screens/choose";
 import { completePuzzle } from "./screens/done";
@@ -16,7 +18,7 @@ import { setupShop } from "./screens/shop";
 import { requireKid, setupLogin } from "./screens/login";
 import { debugState, setupPlay, startPuzzle } from "./screens/play";
 import { byId } from "./ui/dom";
-import { go, onEnter, setGuard, wireNavigation } from "./ui/nav";
+import { current, go, onEnter, setGuard, wireNavigation } from "./ui/nav";
 import { mountStage } from "./ui/stage";
 import { setupUpdates } from "./ui/update";
 
@@ -30,7 +32,8 @@ async function boot(): Promise<void> {
   const SQL = await initSqlJs({ locateFile: () => wasmUrl });
   const db = await AppDb.open(SQL, idbKV("db"));
   const files = new FileStore(idbKV("files"));
-  setApp({ db, files, kid: null });
+  const sync = new Sync(db, files);
+  setApp({ db, files, sync, kid: null });
 
   // Ask iOS to keep this app's data even when storage runs low.
   void navigator.storage?.persist?.();
@@ -64,6 +67,19 @@ async function boot(): Promise<void> {
 
   byId("loading").hidden = true;
   go("login");
+
+  // Changes from the family's other devices show up on the screens that list things; a puzzle in
+  // progress is never interrupted.
+  sync.onUpdate((changed) => {
+    if (!changed) return;
+    const a = getApp();
+    if (a.kid) a.kid = getKid(db, a.kid.id);
+    const screen = current();
+    if (!a.kid && screen !== "login" && screen !== "play" && screen !== "done") go("login");
+    else if (screen === "login" || screen === "home" || screen === "shop") go(screen);
+    else renderStars();
+  });
+  sync.start();
 }
 
 boot().catch((e) => {

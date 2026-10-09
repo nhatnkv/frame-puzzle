@@ -18,7 +18,8 @@ import { avatar } from "../ui/avatar";
 import { byId, h, icon, twoTapDelete } from "../ui/dom";
 import { giftPic } from "../ui/gift-pic";
 import { canvasToJpeg, loadImageFile, onFilePicked, squareCrop } from "../ui/images";
-import { onEnter } from "../ui/nav";
+import { current, onEnter } from "../ui/nav";
+import { FamilyCodeError, formatCode, type SyncState } from "../sync/sync";
 
 const STAR_STEP = 10;
 const GIFT_PIC = 400;
@@ -33,6 +34,42 @@ let form: GiftForm = { id: null, previewUrl: null };
 
 function day(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function statusText(state: SyncState, last: Date | null, pending: number): string {
+  const time = last?.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  switch (state) {
+    case "syncing":
+      return "Syncing…";
+    case "bad-code":
+      return "This family code no longer works. Stop sharing and join again.";
+    case "offline":
+      return pending
+        ? `No internet: ${pending} ${pending === 1 ? "change" : "changes"} will be sent later.`
+        : "No internet. Everything still works on this iPad.";
+    default:
+      return time ? `Up to date (${time}).` : "Up to date.";
+  }
+}
+
+/** A button that asks again (`armed` text) before acting; with `armed` null it acts on the first tap. */
+function confirmButton(label: string, armed: string | null, onConfirm: () => void): HTMLButtonElement {
+  const b = h("button", { type: "button", class: "btn btn-secondary btn-small" }, label);
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  b.addEventListener("click", () => {
+    if (!armed || b.classList.contains("armed")) {
+      if (timer) clearTimeout(timer);
+      onConfirm();
+      return;
+    }
+    b.classList.add("armed");
+    b.textContent = armed;
+    timer = setTimeout(() => {
+      b.classList.remove("armed");
+      b.textContent = label;
+    }, 3000);
+  });
+  return b;
 }
 
 export function setupParent(): void {
@@ -102,6 +139,69 @@ export function setupParent(): void {
     closeForm();
     render();
   });
+
+  // ----- Sharing with the family -----
+  let shareError = "";
+  let busy = false;
+  getApp().sync.onUpdate((changed) => {
+    if (current() !== "parent" || !getApp().kid) return;
+    if (changed && formEl.hidden) render();
+    else renderShare();
+  });
+
+  async function act(fn: () => Promise<unknown>) {
+    busy = true;
+    shareError = "";
+    renderShare();
+    try {
+      await fn();
+    } catch (e) {
+      shareError =
+        e instanceof FamilyCodeError
+          ? "That code does not work. Check it on the other device."
+          : "Could not reach the family's data. Check the internet and try again.";
+    }
+    busy = false;
+    // Joining may have taken away the child who was playing, and with them this screen.
+    if (current() === "parent" && getApp().kid) render();
+  }
+
+  function renderShare() {
+    const { db, sync } = getApp();
+    const box = byId("shareBox");
+    const code = sync.code;
+    const err = shareError ? [h("p", { class: "note", style: "color: var(--danger)" }, shareError)] : [];
+    if (!code) {
+      const start = h("button", { type: "button", class: "btn btn-primary btn-small", disabled: busy }, "Start sharing");
+      start.addEventListener("click", () => void act(() => sync.create()));
+      const input = h("input", { type: "text", id: "joinCode", placeholder: "Family code", maxlength: 14, autocomplete: "off", "aria-label": "Family code" });
+      // Joining replaces this device's children and gifts, so ask twice when there are any.
+      const hasData = db.value<number>("SELECT COUNT(*) FROM kids") > 0;
+      const join = confirmButton("Join", hasData ? "Replace this iPad's data?" : null, () => {
+        if (input.value.trim()) void act(() => sync.join(input.value));
+      });
+      join.disabled = busy;
+      box.replaceChildren(
+        h("div", { class: "share-row" }, h("b", {}, "Share with family"), start),
+        h("p", { class: "note" }, "Stars, children, gifts and pictures stay the same on every device that has the family code."),
+        h("div", { class: "share-row" }, input, join),
+        ...err
+      );
+      return;
+    }
+    const now = h("button", { type: "button", class: "btn btn-secondary btn-small", disabled: busy || sync.state === "syncing" }, "Sync now");
+    now.addEventListener("click", () => void sync.now());
+    const stop = confirmButton("Stop sharing", "Stop on this iPad?", () => {
+      sync.leave();
+      render();
+    });
+    box.replaceChildren(
+      h("div", { class: "share-row" }, h("b", {}, "Family code"), h("span", { class: "share-code", id: "familyCode" }, formatCode(code))),
+      h("p", { class: "note", id: "syncStatus" }, statusText(sync.state, sync.lastSynced, sync.pending())),
+      h("div", { class: "share-row" }, now, stop),
+      ...err
+    );
+  }
 
   // ----- Settings -----
   const step = (delta: number) => {
@@ -188,8 +288,9 @@ export function setupParent(): void {
       `SELECT (SELECT COUNT(*) FROM kids) AS kids, (SELECT COUNT(*) FROM photos) AS photos,
         (SELECT COUNT(*) FROM rewards WHERE active = 1) AS gifts, (SELECT COUNT(*) FROM puzzles) AS puzzles`
     )!;
+    renderShare();
     byId("dbInfo").textContent =
-      `Saved on this iPad: ${c.kids} ${c.kids === 1 ? "child" : "children"} · ${c.photos} pictures · ` +
+      `${getApp().sync.code ? "Shared with your family" : "Saved on this iPad"}: ${c.kids} ${c.kids === 1 ? "child" : "children"} · ${c.photos} pictures · ` +
       `${c.gifts} gifts · ${c.puzzles} puzzles finished`;
   }
 }
