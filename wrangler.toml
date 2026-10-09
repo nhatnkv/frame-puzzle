@@ -1,0 +1,13 @@
+# Cloudflare Pages project for Frame Puzzle: the static app from dist/ plus the API in functions/.
+# Deployed by .github/workflows/deploy-cloudflare.yml, which also creates the project and the
+# D1 database the first time and fills in database_id below.
+name = "frame-puzzle"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-09-01"
+
+# The shared database. Locally (`npx wrangler pages dev`) this is a SQLite file under .wrangler/.
+[[d1_databases]]
+binding = "DB"
+database_name = "frame-puzzle"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"

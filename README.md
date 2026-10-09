@@ -59,6 +59,8 @@ The UI is laid out at iPad size (1194x834 stage units) and scaled to fill the sc
 
 The app is live at https://nhatnkv.github.io/frame-puzzle/. `.github/workflows/deploy.yml` builds and publishes `dist/` to GitHub Pages on every push to the default branch, or when run by hand from the Actions tab. One-time setup (done): the repository is public (the code holds no family data) and **Settings > Pages > Source** is **GitHub Actions**.
 
+The app is also being moved to Cloudflare Pages (https://frame-puzzle.pages.dev), where an API in `functions/` will reach a shared Cloudflare D1 database in place of the database on each device. `.github/workflows/deploy-cloudflare.yml` deploys every push (the default branch to production, other branches to a preview address) and creates the Pages project and the D1 database on its first run. One-time setup: repository secrets `CLOUDFLARE_API_TOKEN` (permissions Account > Cloudflare Pages: Edit and Account > D1: Edit) and `CLOUDFLARE_ACCOUNT_ID`; until they exist the workflow builds and skips the deploy. Run it locally with `npm run build && npx wrangler pages dev`, then open http://localhost:8788/api/health.
+
 ## Design and milestones
 
 The product design, UI, data model and plan were agreed before coding, then built one milestone at a time:
