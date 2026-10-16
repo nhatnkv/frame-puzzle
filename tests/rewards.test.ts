@@ -1,5 +1,5 @@
 import initSqlJs from "sql.js";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { SqlJsStatic } from "sql.js";
 import { AppDb } from "../src/db/database";
 import { memoryKV } from "../src/db/kv";
@@ -90,9 +90,17 @@ describe("gifts", () => {
     const g = addReward(db, "Sticker", 5, null);
     addStars(db, a, 50, "puzzle");
     addStars(db, b, 50, "puzzle");
-    const r1 = redeem(db, a, g)!;
-    const r2 = redeem(db, b, g)!;
-    const r3 = redeem(db, a, g)!;
+    // A second apart, so the newest comes first: row ids are random, so gifts traded in the same
+    // millisecond would come in any order.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const tradeAt = (second: number, kid: number) => {
+      vi.setSystemTime(Date.UTC(2026, 0, 1, 0, 0, second));
+      return redeem(db, kid, g)!;
+    };
+    const r1 = tradeAt(1, a);
+    const r2 = tradeAt(2, b);
+    const r3 = tradeAt(3, a);
+    vi.useRealTimers();
     expect(ungivenCount(db)).toBe(3);
     setGiven(db, r3.id, true);
     expect(ungivenCount(db)).toBe(2);
