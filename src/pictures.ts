@@ -11,8 +11,52 @@ const thumbs = import.meta.glob<string>("./pictures/thumbs/*.jpg", { eager: true
 
 /** The built-in categories, in the order the menu lists them, and their pictures in library order. */
 export const CATEGORIES = [
-  { id: "animals", label: "Animals", icon: "paw", pictures: ["jungle", "farm"] },
-  { id: "vehicles", label: "Vehicles", icon: "car", pictures: ["construction", "town", "rescue"] },
+  {
+    id: "animals",
+    label: "Animals",
+    icon: "paw",
+    pictures: ["jungle", "farm", "pets-backyard", "forest-friends", "polar-animals", "pond-life", "outback-animals", "panda-bamboo", "desert-animals", "mountain-animals", "bird-paradise", "bug-meadow"]
+  },
+  {
+    id: "vehicles",
+    label: "Vehicles",
+    icon: "car",
+    pictures: [
+      "construction",
+      "town",
+      "rescue",
+      "car-wash",
+      "farm-machines",
+      "race-track",
+      "monster-trucks",
+      "city-cleaners",
+      "trains-hills",
+      "boats-bay",
+      "airfield",
+      "snow-vehicles",
+      "balloon-festival",
+      "rocket-pad",
+      "moon-base",
+      "space-station",
+      "jet-airport",
+      "air-show",
+      "helicopters",
+      "quarry-machines",
+      "road-works",
+      "crane-site",
+      "rice-harvest",
+      "orchard-harvest",
+      "tractor-show",
+      "fire-drill",
+      "police-patrol",
+      "submarines",
+      "cruise-port",
+      "bus-station",
+      "classic-cars",
+      "delivery-day",
+      "future-city"
+    ]
+  },
   {
     id: "landscapes",
     label: "Landscapes",
