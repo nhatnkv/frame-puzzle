@@ -117,6 +117,24 @@ function otherSlot(s: FrameState, piece: number): number {
   return s.slots.findIndex((r, i) => i !== piece && lying(r) === lies);
 }
 
+/**
+ * Earns the child 4 stars the quick way, now that every puzzle has 30 pieces or more: 2 pieces of
+ * a 30 piece Easy race (60 stars for the whole picture), then the 5 minutes run out. Needs
+ * page.clock.install() before the app opens.
+ */
+async function earnFourStars(page: Page) {
+  await openChoose(page, "Race");
+  await page.locator(".level-btn", { hasText: "Easy" }).click();
+  await page.locator(".count-btn", { hasText: /^30$/ }).click();
+  await page.click("#startBtn");
+  await expect(page.locator("#raceTimer")).toBeVisible();
+  await dragPiece(page, 0, 0);
+  await dragPiece(page, 1, 1);
+  await page.clock.fastForward("05:01");
+  await expect(page.locator("#earned")).toHaveText("+4");
+  await page.click("#s-done [data-go=home]");
+}
+
 /** The CSS a piece is shown with, to see it flipped or turned. */
 const pieceStyle = (page: Page, piece: number) =>
   page.locator(".piece").nth(piece).evaluate((el) => ({ scale: el.style.scale, rotate: el.style.rotate }));
@@ -140,50 +158,53 @@ async function pictureFile(page: Page, name: string, color: string) {
 }
 
 test("a child solves a puzzle, swapping wrong pieces, and earns stars", async ({ page }) => {
+  // Every puzzle has 30 pieces or more, and this one is solved piece by piece.
+  test.slow();
   await open(page);
   await expect(page.locator("#s-login")).toBeVisible();
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
   await expect(page.locator("#s-home [data-stars]")).toHaveText("0");
-  await startPuzzle(page, 4);
+  await startPuzzle(page, 30);
   // Easy, as before: every piece faces the right way and a tap changes nothing.
   const start = await frame(page);
   expect(start.level).toBe("easy");
   await tapPiece(page, 0);
-  expect(await frame(page)).toMatchObject({ poses: [0, 0, 0, 0], loc: start.loc });
+  expect(await frame(page)).toMatchObject({ poses: Array(30).fill(0), loc: start.loc });
 
   // Pieces 0 and 1 swapped: the frame is full but not right.
   await dragPiece(page, 0, 1);
   await dragPiece(page, 1, 0);
-  await dragPiece(page, 2, 2);
-  await dragPiece(page, 3, 3);
-  await expect(page.locator("#progress")).toHaveText("4 / 4");
+  for (let i = 2; i < 30; i++) await dragPiece(page, i, i);
+  await expect(page.locator("#progress")).toHaveText("30 / 30");
   await expect(page.locator("#toast")).toBeVisible();
   await expect(page.locator("#s-play")).toBeVisible();
 
   // Dropping piece 0 on its own cell swaps piece 1 back to cell 1.
   await dragPiece(page, 0, 0);
   await expect(page.locator("#s-done")).toBeVisible();
-  await expect(page.locator("#earned")).toHaveText("+8");
-  await expect(page.locator("#s-done .topbar [data-stars]")).toHaveText("8", { timeout: 6000 });
+  await expect(page.locator("#earned")).toHaveText("+60");
+  await expect(page.locator("#s-done .topbar [data-stars]")).toHaveText("60", { timeout: 6000 });
 
   await page.click("#s-done [data-go=home]");
-  await expect(page.locator("#s-home [data-stars]")).toHaveText("8");
+  await expect(page.locator("#s-home [data-stars]")).toHaveText("60");
 });
 
 test("at medium, a flipped piece fits any slot, and the picture is done once taps flip every piece back", async ({ page }) => {
+  // Every puzzle has 30 pieces or more, and this one is solved piece by piece.
+  test.slow();
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await startPuzzle(page, 4, "Medium");
+  await startPuzzle(page, 30, "Medium");
   let s = await frame(page);
   expect(s.level).toBe("medium");
   const flipped = s.poses.flatMap((p, i) => (p % 2 ? [i] : []));
-  expect(flipped).toHaveLength(2);
+  expect(flipped).toHaveLength(15);
   expect(await pieceStyle(page, flipped[0])).toMatchObject({ scale: "-1 1" });
 
-  for (let i = 0; i < 4; i++) await dragPiece(page, i, i);
-  await expect(page.locator("#progress")).toHaveText("4 / 4");
+  for (let i = 0; i < 30; i++) await dragPiece(page, i, i);
+  await expect(page.locator("#progress")).toHaveText("30 / 30");
   await expect(page.locator("#toast")).toContainText("flip");
   await expect(page.locator("#s-play")).toBeVisible();
 
@@ -196,50 +217,55 @@ test("at medium, a flipped piece fits any slot, and the picture is done once tap
   await expect(page.locator("#s-play")).toBeVisible();
 
   // The light bulb puts the last flipped piece right, which finishes the picture.
+  for (const p of flipped.slice(1, -1)) await tapPiece(page, p);
+  await expect(page.locator("#s-play")).toBeVisible();
   await page.click("#hintBtn");
   await expect(page.locator("#s-done")).toBeVisible();
-  await expect(page.locator("#earned")).toHaveText("+24");
+  await expect(page.locator("#earned")).toHaveText("+180");
 
   // The level is remembered for this child.
   await page.click("#s-done [data-go=home]");
   await openChoose(page);
   await expect(page.locator(".level-btn", { hasText: "Medium" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("#rewardPreview")).toHaveText("+24");
+  await expect(page.locator("#rewardPreview")).toHaveText("+180");
 });
 
 test("at hard, pieces lie or stand, a tap turns a loose one a quarter turn and one in the frame a half turn", async ({ page }) => {
+  // Every puzzle has 30 pieces or more, and this one is solved piece by piece.
+  test.slow();
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await startPuzzle(page, 4, "Hard");
+  await startPuzzle(page, 30, "Hard");
   const s = await frame(page);
   expect(s.level).toBe("hard");
   expect(s.poses.filter((p) => p % 4).length).toBeGreaterThanOrEqual(2);
   // Every piece is two cells of the grid, lying or standing.
   for (const r of s.slots) expect(Math.round((r.w * r.h) / (s.pw * s.ph))).toBe(2);
-  const turnsLeft = (p: number) => (4 - (p % 4)) % 4;
 
   // Beside the frame, each tap turns a piece a quarter turn clockwise, never back.
   const late = 0;
   await tapPiece(page, late);
   expect((await frame(page)).poses[late]).toBe(s.poses[late] + 1);
   expect(await pieceStyle(page, late)).toMatchObject({ rotate: `${(s.poses[late] + 1) * 90}deg` });
-  // Upside down, it still fits its slot; the others are turned round first.
+  // Upside down, it still fits its slot.
   await tapPiece(page, late, (2 - ((s.poses[late] + 1) % 4) + 4) % 4);
   const upsideDown = (await frame(page)).poses[late];
   expect(upsideDown % 4).toBe(2);
-  for (let i = 0; i < 4; i++) {
-    if (i !== late) await tapPiece(page, i, turnsLeft(s.poses[i]));
+  // The others go in lying or standing like their slots, and any upside down one is turned round there.
+  for (let i = 0; i < 30; i++) {
+    if (i !== late && s.poses[i] % 2) await tapPiece(page, i);
     await dragPiece(page, i, i);
+    if (i !== late && (await frame(page)).poses[i] % 4) await tapPiece(page, i);
   }
-  await expect(page.locator("#progress")).toHaveText("4 / 4");
+  await expect(page.locator("#progress")).toHaveText("30 / 30");
   await expect(page.locator("#toast")).toContainText("turn");
 
   // In the frame a tap turns it a half turn, so it stays in its slot, and the picture is done.
   await tapPiece(page, late);
   expect((await frame(page)).poses[late]).toBe(upsideDown + 2);
   await expect(page.locator("#s-done")).toBeVisible();
-  await expect(page.locator("#earned")).toHaveText("+40");
+  await expect(page.locator("#earned")).toHaveText("+300");
 });
 
 test("from hard up, a piece only goes into a slot of its shape, lying or standing", async ({ page }) => {
@@ -303,15 +329,11 @@ test("at extreme, a piece in the wrong slot or the wrong way round sends every p
 });
 
 test("at ultimate, a mistake also costs 1% of the child's stars, shown beside the close button", async ({ page }) => {
+  await page.clock.install();
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await startPuzzle(page, 2);
-  await expect(page.locator("#playStars")).toHaveText("0");
-  await dragPiece(page, 0, 0);
-  await dragPiece(page, 1, 1);
-  await expect(page.locator("#earned")).toHaveText("+4");
-  await page.click("#s-done [data-go=home]");
+  await earnFourStars(page);
   await expect(page.locator("#s-home [data-stars]")).toHaveText("4");
 
   await startPuzzle(page, 30, "Ultimate");
@@ -332,15 +354,10 @@ test("at ultimate, a mistake also costs 1% of the child's stars, shown beside th
 });
 
 test("hints run out after 5 at hard, cost more and more stars at extreme and are gone at ultimate", async ({ page }) => {
+  await page.clock.install();
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await startPuzzle(page, 2);
-  await expect(page.locator("#hintLeft")).toBeHidden();
-  await dragPiece(page, 0, 0);
-  await dragPiece(page, 1, 1);
-  await page.click("#s-done [data-go=home]");
-  await expect(page.locator("#s-home [data-stars]")).toHaveText("4");
   const leave = async () => {
     await page.locator("#exitBtn").hover();
     await page.mouse.down();
@@ -348,6 +365,12 @@ test("hints run out after 5 at hard, cost more and more stars at extreme and are
     await page.mouse.up();
     await expect(page.locator("#s-home")).toBeVisible();
   };
+  // Easy has hints without end, so nothing shows beside the light bulb.
+  await startPuzzle(page, 30);
+  await expect(page.locator("#hintLeft")).toBeHidden();
+  await leave();
+  await earnFourStars(page);
+  await expect(page.locator("#s-home [data-stars]")).toHaveText("4");
 
   await startPuzzle(page, 30, "Ultimate");
   await expect(page.locator("#hintBtn")).toBeHidden();
@@ -365,7 +388,7 @@ test("hints run out after 5 at hard, cost more and more stars at extreme and are
   await expect(page.locator("#hintBtn")).toBeDisabled();
   await leave();
 
-  await startPuzzle(page, 4, "Hard");
+  await startPuzzle(page, 30, "Hard");
   await expect(page.locator("#hintLeft")).toHaveText("5 left");
   for (let left = 4; left >= 0; left--) {
     await page.click("#hintBtn");
@@ -376,13 +399,11 @@ test("hints run out after 5 at hard, cost more and more stars at extreme and are
 });
 
 test("at ultimate, losing the last star ends the puzzle and locks ultimate until the child earns more", async ({ page }) => {
+  await page.clock.install();
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await startPuzzle(page, 2);
-  await dragPiece(page, 0, 0);
-  await dragPiece(page, 1, 1);
-  await page.click("#s-done [data-go=home]");
+  await earnFourStars(page);
   await startPuzzle(page, 30, "Ultimate");
   for (const stars of ["3", "2", "1", "0"]) {
     await dragPiece(page, 0, otherSlot(await frame(page), 0));
@@ -394,26 +415,24 @@ test("at ultimate, losing the last star ends the puzzle and locks ultimate until
   await expect(page.locator(".level-btn", { hasText: "Extreme" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#s-choose [data-stars]")).toHaveText("0");
 
-  // A finished picture brings stars, and Ultimate back.
-  await page.locator(".level-btn", { hasText: "Easy" }).click();
-  await page.locator(".count-btn", { hasText: /^2$/ }).click();
-  await page.click("#startBtn");
-  await dragPiece(page, 0, 0);
-  await dragPiece(page, 1, 1);
-  await page.click("#s-done [data-go=home]");
+  // Stars earned again bring Ultimate back.
+  await page.click("#s-choose [data-go=mode]");
+  await page.click("#s-mode [data-go=home]");
+  await earnFourStars(page);
   await openChoose(page);
   await expect(page.locator(".level-btn", { hasText: "Ultimate" })).toBeEnabled();
 });
 
-test("extreme and ultimate offer only big puzzles, 30 to 70 pieces, and each list keeps its own choice", async ({ page }) => {
+test("every level offers 30 pieces and up, extreme and ultimate up to 70, and each list keeps its own choice", async ({ page }) => {
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
   await openChoose(page);
   const counts = () => page.locator(".count-btn").allTextContents();
   const on = page.locator(".count-btn.on");
-  expect(await counts()).toEqual(["2", "3", "4", "6", "9", "12", "16", "20", "25", "30", "36", "49"]);
-  await page.locator(".count-btn", { hasText: /^9$/ }).click();
+  expect(await counts()).toEqual(["30", "36", "49"]);
+  await expect(on).toHaveText("30");
+  await page.locator(".count-btn", { hasText: /^36$/ }).click();
 
   await page.locator(".level-btn", { hasText: "Extreme" }).click();
   expect(await counts()).toEqual(["30", "35", "36", "40", "42", "45", "48", "49", "54", "56", "63", "70"]);
@@ -422,7 +441,7 @@ test("extreme and ultimate offer only big puzzles, 30 to 70 pieces, and each lis
   await expect(page.locator("#rewardPreview")).toHaveText("+1400");
 
   await page.locator(".level-btn", { hasText: "Hard" }).click();
-  await expect(on).toHaveText("9");
+  await expect(on).toHaveText("36");
   await page.locator(".level-btn", { hasText: "Extreme" }).click();
   await expect(on).toHaveText("70");
 
@@ -471,7 +490,7 @@ test("loose pieces start in a random order and stay put on a resize without a si
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await startPuzzle(page, 9);
+  await startPuzzle(page, 30);
   const inPictureOrder = (s: FrameState) => {
     const cells = s.loc.filter((l) => l.kind === "tray").map((l) => l.index!);
     return cells.every((c, i) => i === 0 || c > cells[i - 1]);
@@ -616,7 +635,7 @@ test("pictures can be shown one category at a time, remembered for each child", 
   await thumbs.last().scrollIntoViewIfNeeded();
   await thumbs.last().click();
   await expect(thumbs.last()).toHaveAttribute("aria-pressed", "true");
-  await page.locator(".count-btn", { hasText: /^9$/ }).click();
+  await page.locator(".count-btn", { hasText: /^36$/ }).click();
   const inView = await page.evaluate(() => {
     const lib = document.getElementById("library")!.getBoundingClientRect();
     const on = document.querySelector("#library .thumb-btn.on")!.getBoundingClientRect();
@@ -651,11 +670,11 @@ test("the frame takes the shape of a wide photo, so none of it is cut off", asyn
   await openChoose(page);
   await page.setInputFiles("#pickPhoto", await pictureFile(page, "beach.png", "#9EC3E3")); // 800x600
   await expect(page.locator("#library .thumb-btn")).toHaveCount(1);
-  await page.locator(".count-btn", { hasText: /^4$/ }).click();
+  await page.locator(".count-btn", { hasText: /^30$/ }).click();
   await page.click("#startBtn");
-  await expect(page.locator("#progress")).toHaveText("0 / 4");
+  await expect(page.locator("#progress")).toHaveText("0 / 30");
   const s = await frame(page);
-  expect([s.rows, s.cols]).toEqual([2, 2]);
+  expect([s.rows, s.cols]).toEqual([5, 6]);
   expect(s.bw / s.bh).toBeCloseTo(4 / 3, 1);
   expect(s.pw).toBeGreaterThan(s.ph);
 });
@@ -680,7 +699,7 @@ test("tapping the small picture shows it big in the middle, and a tap shrinks it
   await open(page);
   await addKid(page, "Bin");
   await pickKid(page, "Bin");
-  await startPuzzle(page, 4);
+  await startPuzzle(page, 30);
   const small = (await page.locator(".ref-card").boundingBox())!;
   await page.locator(".ref-card").click();
   const big = page.locator(".zoom-card");
@@ -700,7 +719,7 @@ test("tapping the small picture shows it big in the middle, and a tap shrinks it
   await expect(page.locator(".zoom")).toHaveCount(0);
   await expect(page.locator(".ref-card")).toBeVisible();
   await dragPiece(page, 0, 0);
-  await expect(page.locator("#progress")).toHaveText("1 / 4");
+  await expect(page.locator("#progress")).toHaveText("1 / 30");
 });
 
 test("Play offers Normal and Race; when a Race's time runs out the child gets stars for each piece done", async ({ page }) => {
@@ -717,7 +736,7 @@ test("Play offers Normal and Race; when a Race's time runs out the child gets st
   await page.click("#modeRace");
   await expect(page.locator("#chooseRace")).toHaveText("Race · 2 min");
   await page.locator(".level-btn", { hasText: "Easy" }).click();
-  await page.locator(".count-btn", { hasText: /^4$/ }).click();
+  await page.locator(".count-btn", { hasText: /^30$/ }).click();
   await page.click("#startBtn");
   await expect(page.locator("#raceTimer")).toBeVisible();
   await expect(page.locator("#raceClock")).toHaveText("2:00");
@@ -725,9 +744,9 @@ test("Play offers Normal and Race; when a Race's time runs out the child gets st
   await page.clock.fastForward("01:55");
   await expect(page.locator("#raceTimer")).toHaveClass(/low/);
   await page.clock.fastForward("00:06");
-  // 1 of 4 pieces of an 8 star puzzle: 8 / 4 = 2 stars.
+  // 1 of 30 pieces of a 60 star puzzle: 60 / 30 = 2 stars.
   await expect(page.locator("#doneTitle")).toHaveText("Time over!");
-  await expect(page.locator("#doneNote")).toHaveText("1 of 4 pieces");
+  await expect(page.locator("#doneNote")).toHaveText("1 of 30 pieces");
   await expect(page.locator("#earned")).toHaveText("+2");
   await expect(page.locator("#s-done .topbar [data-stars]")).toHaveText("2");
 
@@ -826,7 +845,7 @@ test("works offline after the first visit", async ({ page, context, browserName 
   await page.reload();
   await expect(page.locator("#loading")).toBeHidden();
   await pickKid(page, "Bin");
-  await startPuzzle(page, 4);
+  await startPuzzle(page, 30);
   await context.setOffline(false);
 });
 

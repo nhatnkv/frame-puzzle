@@ -118,7 +118,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .thumb-btn { width: 100%; aspect-ratio: 1; max-width: 100%; border-radius: 18px; border: 3px solid transparent; padding: 0; overflow: hidden; background: var(--board); }
 .thumb-btn.on { border-color: var(--primary); }
 .thumb-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.count-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+/* Two rows whatever the level offers, so the levels below stay put when it changes. */
+.count-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(2, 62px); gap: 10px; }
 .count-btn { height: 62px; border-radius: 18px; border: 2px solid var(--line); background: var(--surface); font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .count-btn.on { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
 /* Five levels in one row, the icon above the name; the two that send pieces back out are red. */
