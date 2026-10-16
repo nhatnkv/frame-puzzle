@@ -31,8 +31,9 @@ describe("levels", () => {
     }
   });
 
-  it("offers only big puzzles, 30 to 70 pieces, at Extreme and Ultimate", () => {
+  it("offers 30 pieces and up at every level, up to 70 at Extreme and Ultimate", () => {
     for (const lv of ["easy", "medium", "hard"] as const) expect(pieceCounts(lv)).toBe(COUNTS);
+    expect(COUNTS).toEqual([30, 36, 49]);
     for (const lv of ["extreme", "ultimate"] as const) expect(pieceCounts(lv)).toBe(BIG_COUNTS);
     expect(BIG_COUNTS).toHaveLength(12);
     expect(Math.min(...BIG_COUNTS)).toBe(30);

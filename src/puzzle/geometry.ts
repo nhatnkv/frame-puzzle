@@ -3,12 +3,15 @@
 // pieces has a tab that bulges into one of them, with its own random size, position and height, so
 // pieces look different from each other. Two neighbours share one edge curve exactly, so they always fit.
 
-/** Every piece count there is: most levels offer up to 49 pieces, Extreme and Ultimate 30 to 70. */
+/**
+ * Every piece count a picture can be cut into. The levels offer only 30 pieces and up (Carrick dropped
+ * the small puzzles): 30 to 49 at most levels, 30 to 70 at Extreme and Ultimate.
+ */
 export const PIECE_COUNTS = [2, 3, 4, 6, 9, 12, 16, 20, 25, 30, 35, 36, 40, 42, 45, 48, 49, 54, 56, 63, 70] as const;
 export type PieceCount = (typeof PIECE_COUNTS)[number];
-export const COUNTS: readonly PieceCount[] = [2, 3, 4, 6, 9, 12, 16, 20, 25, 30, 36, 49];
+export const COUNTS: readonly PieceCount[] = [30, 36, 49];
 export const BIG_COUNTS: readonly PieceCount[] = [30, 35, 36, 40, 42, 45, 48, 49, 54, 56, 63, 70];
-export const DEFAULT_COUNT: PieceCount = 4;
+export const DEFAULT_COUNT: PieceCount = 30;
 export const DEFAULT_BIG_COUNT: PieceCount = 30;
 
 /**
