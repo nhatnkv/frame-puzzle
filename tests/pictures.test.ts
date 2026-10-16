@@ -11,7 +11,7 @@ describe("built-in pictures", () => {
   it("come in categories, each with pictures, the first three as before", () => {
     const count = (c: string) => BUILTIN_PICTURES.filter((p) => p.category === c).length;
     expect(SHIPPED_CATEGORIES.slice(0, 3).map((c) => c.id)).toEqual(["animals", "vehicles", "landscapes"]);
-    expect([count("animals"), count("vehicles"), count("landscapes")]).toEqual([12, 13, 10]);
+    expect([count("animals"), count("vehicles"), count("landscapes")]).toEqual([12, 33, 10]);
     for (const c of SHIPPED_CATEGORIES) expect(count(c.id), c.id).toBeGreaterThan(0);
     expect(BUILTIN_PICTURES.length).toBeGreaterThan(15);
   });
