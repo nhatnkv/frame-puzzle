@@ -2,8 +2,8 @@
 // left to right, and a tap flips them back. Hard pieces may start turned a quarter, half or three
 // quarters of the way round, and each tap turns them a quarter turn clockwise. Extreme and
 // Ultimate turn pieces like Hard, and a piece dropped into a slot that is not its own, or the wrong
-// way round, sends every piece in the frame back out, and they are big puzzles only, 30 to 70
-// pieces. From Hard up, pieces are two grid cells long, some lying and some standing. Hints get scarcer as levels get harder: 5 at
+// way round, sends every piece in the frame back out, and they go up to 70 pieces; every level
+// starts at 30. From Hard up, pieces are two grid cells long, some lying and some standing. Hints get scarcer as levels get harder: 5 at
 // Hard, a growing cost in stars at Extreme, none at Ultimate, where mistakes cost stars instead. A picture is
 // done only when every piece is in its own slot and the right way round.
 
@@ -30,7 +30,7 @@ export function scattersOnMistake(level: Level): boolean {
   return level === "extreme" || level === "ultimate";
 }
 
-/** The piece counts a level offers: 30 to 70 at Extreme and Ultimate, up to 49 otherwise. */
+/** The piece counts a level offers: 30 to 70 at Extreme and Ultimate, 30 to 49 otherwise. */
 export function pieceCounts(level: Level): readonly PieceCount[] {
   return scattersOnMistake(level) ? BIG_COUNTS : COUNTS;
 }
