@@ -597,8 +597,8 @@ test("pictures can be shown one category at a time, remembered for each child", 
   await page.click("#categoryBtn");
   const items = menu.locator(".cat-item");
   await expect(items.first()).toHaveText(new RegExp(`All pictures\\s*${BUILTIN_COUNT}`));
-  await expect(items.nth(1)).toHaveText(/Animals\s*2/);
-  await expect(items.nth(2)).toHaveText(/Vehicles\s*3/);
+  await expect(items.nth(1)).toHaveText(/Animals\s*12/);
+  await expect(items.nth(2)).toHaveText(/Vehicles\s*13/);
   await expect(items.nth(3)).toHaveText(/Landscapes\s*10/);
   await expect(items.last()).toHaveText(/My photos\s*0/);
   // Every category fits on the screen.

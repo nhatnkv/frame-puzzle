@@ -11,8 +11,18 @@ const thumbs = import.meta.glob<string>("./pictures/thumbs/*.jpg", { eager: true
 
 /** The built-in categories, in the order the menu lists them, and their pictures in library order. */
 export const CATEGORIES = [
-  { id: "animals", label: "Animals", icon: "paw", pictures: ["jungle", "farm"] },
-  { id: "vehicles", label: "Vehicles", icon: "car", pictures: ["construction", "town", "rescue"] },
+  {
+    id: "animals",
+    label: "Animals",
+    icon: "paw",
+    pictures: ["jungle", "farm", "pets-backyard", "forest-friends", "polar-animals", "pond-life", "outback-animals", "panda-bamboo", "desert-animals", "mountain-animals", "bird-paradise", "bug-meadow"]
+  },
+  {
+    id: "vehicles",
+    label: "Vehicles",
+    icon: "car",
+    pictures: ["construction", "town", "rescue", "car-wash", "farm-machines", "race-track", "monster-trucks", "city-cleaners", "trains-hills", "boats-bay", "airfield", "snow-vehicles", "balloon-festival"]
+  },
   {
     id: "landscapes",
     label: "Landscapes",
