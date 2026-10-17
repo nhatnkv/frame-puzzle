@@ -8,6 +8,7 @@ import { addKid, deleteKid } from "../src/data/kids";
 import {
   addReward,
   allRedemptions,
+  BUILTIN_GIFT,
   cleanGiftName,
   cleanPrice,
   deleteReward,
@@ -16,10 +17,12 @@ import {
   listRewards,
   redeem,
   setGiven,
+  syncBuiltinGifts,
   ungivenCount,
   updateReward
 } from "../src/data/rewards";
 import { addStars, starTotal } from "../src/data/stars";
+import { BUILTIN_GIFTS, builtinGiftUrl } from "../src/gifts";
 
 let SQL: SqlJsStatic;
 beforeAll(async () => {
@@ -112,5 +115,45 @@ describe("gifts", () => {
     // Deleting a child removes their gifts too.
     deleteKid(db, a);
     expect(allRedemptions(db).map((x) => x.id)).toEqual([r2.id]);
+  });
+});
+
+describe("gifts that come with the app", () => {
+  const GIFTS = [
+    { key: "tower-crane", name: "Tháp cần cẩu", price: 400 },
+    { key: "fire-truck", name: "Xe cứu hỏa", price: 500 }
+  ];
+
+  it("are added once, after the family's gifts, with the same ids on every device and nothing to send", async () => {
+    const a = await openDb();
+    const b = await openDb();
+    addReward(a, "Ice cream", 30, null);
+    syncBuiltinGifts(a, GIFTS);
+    syncBuiltinGifts(a, GIFTS);
+    syncBuiltinGifts(b, GIFTS);
+    expect(listRewards(a).map((g) => [g.name, g.price, g.image_key])).toEqual([
+      ["Ice cream", 30, null],
+      ["Tháp cần cẩu", 400, "builtin:gift/tower-crane"],
+      ["Xe cứu hỏa", 500, "builtin:gift/fire-truck"]
+    ]);
+    expect(listRewards(a).slice(1).map((g) => g.id)).toEqual(listRewards(b).map((g) => g.id));
+    expect(a.value<number>("SELECT COUNT(*) FROM sync_outbox WHERE tbl = 'rewards'")).toBe(1);
+  });
+
+  it("keep a parent's changes and do not come back once deleted", async () => {
+    const db = await openDb();
+    syncBuiltinGifts(db, GIFTS);
+    const [crane, fire] = listRewards(db);
+    updateReward(db, crane.id, "Cần cẩu", 250);
+    deleteReward(db, fire.id);
+    expect(db.value<number>("SELECT COUNT(*) FROM sync_outbox WHERE tbl = 'rewards'")).toBe(2);
+    syncBuiltinGifts(db, GIFTS);
+    expect(listRewards(db).map((g) => [g.name, g.price])).toEqual([["Cần cẩu", 250]]);
+  });
+
+  it("each have a picture", () => {
+    for (const g of BUILTIN_GIFTS) expect(builtinGiftUrl(BUILTIN_GIFT + g.key)).toBeTruthy();
+    expect(builtinGiftUrl("builtin:gift/nope")).toBeNull();
+    expect(builtinGiftUrl("abc")).toBeNull();
   });
 });
