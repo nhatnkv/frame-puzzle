@@ -1,7 +1,7 @@
 // Gifts the parents add (shared by the family) and the gifts each child has traded stars for.
 
 import { AppDb, now } from "../db/database";
-import { newId } from "../db/ids";
+import { fixedId, newId } from "../db/ids";
 import { addStars, starTotal } from "./stars";
 
 export interface Reward {
@@ -23,6 +23,17 @@ export interface Redemption {
 }
 
 export const MAX_PRICE = 999;
+
+/** Image key prefix of the gifts that come with the app; the rest of the key is the gift's picture name. */
+export const BUILTIN_GIFT = "builtin:gift/";
+
+/** A gift that comes with the app. */
+export interface BuiltinGift {
+  /** The picture's name under src/gifts, also what keeps the gift's row id the same on every device. */
+  key: string;
+  name: string;
+  price: number;
+}
 
 /** Gifts a child can see in the shop; deleted gifts stay in the table for the history. */
 export function listRewards(db: AppDb): Reward[] {
@@ -61,6 +72,30 @@ export function updateReward(db: AppDb, id: number, name: string, price: number,
 /** Hides the gift from the shop. Children who already got it keep it in their list. */
 export function deleteReward(db: AppDb, id: number): void {
   db.run("UPDATE rewards SET active = 0 WHERE id = ?", [id]);
+}
+
+/**
+ * Adds the gifts that come with the app that this device does not have yet, after the family's
+ * gifts. Each device adds them itself with the same row ids, so they are not sent to the family;
+ * once a parent edits or deletes one, that row is shared like any other gift, and a deleted one
+ * (kept with active = 0) is not added again.
+ */
+export function syncBuiltinGifts(db: AppDb, gifts: BuiltinGift[]): void {
+  const missing = gifts.filter((g) => !db.one("SELECT 1 FROM rewards WHERE id = ?", [fixedId(BUILTIN_GIFT + g.key)]));
+  if (!missing.length) return;
+  db.applyRemote(() => {
+    let sort = db.value<number>("SELECT COALESCE(MAX(sort), -1) + 1 FROM rewards");
+    for (const g of missing) {
+      const key = BUILTIN_GIFT + g.key;
+      db.run("INSERT INTO rewards (id, name, price, image_key, sort) VALUES (?, ?, ?, ?, ?)", [
+        fixedId(key),
+        cleanGiftName(g.name),
+        cleanPrice(g.price),
+        key,
+        sort++
+      ]);
+    }
+  });
 }
 
 export function cleanGiftName(name: string): string {

@@ -17,7 +17,7 @@ import { setSetting, soundOn } from "../data/settings";
 import { adjustStars } from "../data/stars";
 import { avatar } from "../ui/avatar";
 import { byId, h, icon, twoTapDelete } from "../ui/dom";
-import { giftPic } from "../ui/gift-pic";
+import { giftPic, giftUrl } from "../ui/gift-pic";
 import { canvasToJpeg, loadImageFile, onFilePicked, squareCrop } from "../ui/images";
 import { current, onEnter } from "../ui/nav";
 
@@ -61,9 +61,7 @@ export function setupParent(): void {
     setThumb(null);
     if (g?.image_key) {
       const key = g.image_key;
-      void getApp()
-        .files.url(key)
-        .then((url) => form.id === g.id && form.photo === undefined && setThumb(url));
+      void giftUrl(key).then((url) => form.id === g.id && form.photo === undefined && setThumb(url));
     }
     formEl.hidden = false;
     nameInput.focus();
