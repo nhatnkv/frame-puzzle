@@ -1,4 +1,4 @@
-// The gifts that come with the app, toy vehicles Carrick picked for the children. Each device adds
+// The gifts that come with the app, toys Carrick picked for the children. Each device adds
 // them to the gift list by itself (syncBuiltinGifts); parents can edit or delete them like their own.
 // The pictures under gifts/ are 400x400, the size of a picture a parent adds.
 
@@ -13,7 +13,8 @@ export const BUILTIN_GIFTS: BuiltinGift[] = [
   { key: "crawler-crane", name: "Xe cần cẩu", price: 300 },
   { key: "container-truck", name: "Xe container xanh", price: 400 },
   { key: "fire-truck", name: "Xe cứu hỏa", price: 500 },
-  { key: "tow-truck", name: "Xe đầu kéo chở xe cứu hỏa", price: 600 }
+  { key: "tow-truck", name: "Xe đầu kéo chở xe cứu hỏa", price: 600 },
+  { key: "building-blocks", name: "Lego 1000 mảnh", price: 800 }
 ];
 
 /** The picture of a gift that comes with the app, or null for a key that is not one. */
