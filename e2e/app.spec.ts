@@ -533,7 +533,10 @@ test("parents add a gift, the child trades stars for it, and parents hand it out
   await page.fill("#giftName", "Teddy bear");
   await page.fill("#giftPrice", "100");
   await page.click("#giftForm button[type=submit]");
-  await expect(page.locator("#giftList .item")).toHaveCount(2);
+  // The 7 toy vehicles that come with the app are listed first.
+  await expect(page.locator("#giftList .item")).toHaveCount(9);
+  await expect(page.locator("#giftList .item").first()).toContainText("Tháp cần cẩu");
+  await expect(page.locator("#giftList .item").first().locator("img")).toBeVisible();
   await page.click("#starPlus");
   await page.click("#starPlus");
   await expect(page.locator("#starOut")).toHaveText("20");
@@ -541,8 +544,10 @@ test("parents add a gift, the child trades stars for it, and parents hand it out
 
   await page.click("#s-parent [data-go=home]");
   await page.click(".home-card[data-go=shop]");
-  await expect(page.locator("#shopGrid .gift.locked")).toHaveText(/Teddy bear.*80 more/s);
-  await page.locator("#shopGrid .gift.locked").click();
+  const teddy = page.locator("#shopGrid .gift.locked", { hasText: "Teddy bear" });
+  await expect(teddy).toHaveText(/Teddy bear.*80 more/s);
+  await expect(page.locator("#shopGrid .gift.locked")).toHaveCount(8);
+  await teddy.click();
   await expect(page.locator("#confirm")).toBeHidden();
   await page.locator("#shopGrid .gift", { hasText: "Ice cream" }).click();
   await expect(page.locator("#confirmText")).toHaveText("Uses 10 stars. You will have 10 left.");

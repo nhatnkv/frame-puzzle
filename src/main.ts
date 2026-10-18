@@ -4,6 +4,7 @@ import wasmUrl from "sql.js/dist/sql-wasm-browser.wasm?url";
 import { getApp, renderStars, setApp } from "./app";
 import { referencedFiles } from "./data/files";
 import { syncBuiltins } from "./data/photos";
+import { syncBuiltinGifts } from "./data/rewards";
 import { AppDb } from "./db/database";
 import { FileStore } from "./db/files";
 import { idbKV } from "./db/kv";
@@ -11,6 +12,7 @@ import { getKid } from "./data/kids";
 import { Sync } from "./sync/sync";
 import { Players } from "./rank/players";
 import { getSetting } from "./data/settings";
+import { BUILTIN_GIFTS } from "./gifts";
 import { BUILTIN_PICTURES } from "./pictures";
 import { setupChoose } from "./screens/choose";
 import { completePuzzle, timeOver } from "./screens/done";
@@ -53,6 +55,7 @@ async function boot(): Promise<void> {
   setupUpdates(() => db.flush());
 
   syncBuiltins(db, BUILTIN_PICTURES);
+  syncBuiltinGifts(db, BUILTIN_GIFTS);
   void files.sweep(() => referencedFiles(db));
 
   setupLogin((kid) => {
@@ -81,6 +84,8 @@ async function boot(): Promise<void> {
   // Changes from the family's other devices show up on the screens that list things; a puzzle in
   // progress is never interrupted.
   sync.onUpdate((changed) => {
+    // Joining a family replaces the gift list; the ones that come with the app go back in.
+    syncBuiltinGifts(db, BUILTIN_GIFTS);
     if (!changed) return;
     const a = getApp();
     if (a.kid) a.kid = getKid(db, a.kid.id);
